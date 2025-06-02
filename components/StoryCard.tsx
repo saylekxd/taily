@@ -18,7 +18,7 @@ export default function StoryCard({
 }: StoryCardProps) {
   const cardDimensions: Record<string, { width: DimensionValue; height: number }> = {
     small: { width: 120, height: 160 },
-    medium: { width: 160, height: 220 },
+    medium: { width: '100%', height: 220 },
     large: { width: '100%', height: 220 },
   };
   
@@ -95,10 +95,17 @@ export default function StoryCard({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: colors.card,
-    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   coverImage: {
     width: '100%',
@@ -109,26 +116,28 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 12,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    padding: 14,
   },
   title: {
     fontFamily: 'Nunito-Bold',
     color: colors.white,
     marginBottom: 4,
+    lineHeight: 22,
   },
   readingTime: {
     fontFamily: 'Nunito-Regular',
     fontSize: 12,
     color: colors.textSecondary,
+    opacity: 0.9,
   },
   categoryContainer: {
     position: 'absolute',
-    top: -30,
-    left: 12,
+    top: -32,
+    left: 14,
     backgroundColor: colors.primary,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     borderRadius: 12,
   },
   category: {
@@ -140,9 +149,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 12,
-    padding: 6,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 14,
+    padding: 8,
   },
   progressBarContainer: {
     position: 'absolute',
@@ -152,16 +161,17 @@ const styles = StyleSheet.create({
   },
   newBadge: {
     position: 'absolute',
-    top: -36,
-    right: 12,
+    top: -38,
+    right: 14,
     backgroundColor: colors.accent,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     borderRadius: 12,
   },
   newText: {
     fontFamily: 'Nunito-Bold',
     fontSize: 10,
     color: colors.white,
+    letterSpacing: 0.5,
   },
 });

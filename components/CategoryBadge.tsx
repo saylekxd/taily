@@ -21,6 +21,7 @@ export default function CategoryBadge({
         { backgroundColor: isSelected ? category.color : colors.card }
       ]}
       onPress={onPress}
+      activeOpacity={0.8}
     >
       <Text style={[
         styles.text,
@@ -34,20 +35,36 @@ export default function CategoryBadge({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    marginRight: 12,
+    borderWidth: 1.5,
     borderColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    marginVertical: 4,
   },
   selectedContainer: {
     borderColor: colors.white,
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   text: {
     fontFamily: 'Nunito-Bold',
     fontSize: 14,
     color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
   },
   selectedText: {
     color: colors.white,

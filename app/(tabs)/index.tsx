@@ -124,13 +124,14 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}
           >
-            {inProgressStories.map(story => (
-              <StoryCard 
-                key={story.id} 
-                story={story} 
-                size="medium"
-                onPress={() => router.push(`/story/${story.id}`)}
-              />
+            {inProgressStories.map((story, index) => (
+              <View key={story.id} style={[styles.horizontalCard, { marginLeft: index === 0 ? 0 : 12 }]}>
+                <StoryCard 
+                  story={story} 
+                  size="medium"
+                  onPress={() => router.push(`/story/${story.id}`)}
+                />
+              </View>
             ))}
           </ScrollView>
         </View>
@@ -154,13 +155,14 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalList}
           >
-            {recommendedStories.slice(0, 5).map(story => (
-              <StoryCard 
-                key={story.id} 
-                story={story} 
-                size="medium"
-                onPress={() => router.push(`/story/${story.id}`)}
-              />
+            {recommendedStories.slice(0, 5).map((story, index) => (
+              <View key={story.id} style={[styles.horizontalCard, { marginLeft: index === 0 ? 0 : 12 }]}>
+                <StoryCard 
+                  story={story} 
+                  size="medium"
+                  onPress={() => router.push(`/story/${story.id}`)}
+                />
+              </View>
             ))}
           </ScrollView>
         </View>
@@ -176,7 +178,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
@@ -191,9 +193,10 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: 'Nunito-ExtraBold',
-    fontSize: 28,
+    fontSize: 32,
     color: colors.white,
     marginTop: 4,
+    letterSpacing: -0.5,
   },
   loadingText: {
     fontFamily: 'Nunito-Regular',
@@ -203,29 +206,45 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   sectionContainer: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   sectionTitle: {
     fontFamily: 'Nunito-Bold',
-    fontSize: 20,
+    fontSize: 22,
     color: colors.white,
-    marginBottom: 16,
+    letterSpacing: -0.3,
   },
   dailyStoryContainer: {
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 8,
   },
   noDailyStoryContainer: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 28,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   noDailyStoryText: {
     fontFamily: 'Nunito-Bold',
@@ -240,13 +259,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     opacity: 0.7,
+    lineHeight: 20,
   },
   horizontalList: {
     paddingRight: 16,
   },
+  horizontalCard: {
+    width: 180,
+  },
   seeAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   seeAllText: {
     fontFamily: 'Nunito-Bold',

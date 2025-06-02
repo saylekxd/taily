@@ -4,7 +4,8 @@ import {
   Text, 
   StyleSheet, 
   FlatList, 
-  TouchableOpacity 
+  TouchableOpacity,
+  Dimensions 
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,11 @@ import { getUserStories } from '@/services/storyService';
 import { Story } from '@/types';
 
 type TabType = 'all' | 'unread' | 'favorites' | 'audio';
+
+const { width: screenWidth } = Dimensions.get('window');
+const CARD_MARGIN = 8;
+const HORIZONTAL_PADDING = 16;
+const CARD_WIDTH = (screenWidth - (HORIZONTAL_PADDING * 2) - (CARD_MARGIN * 3)) / 2;
 
 export default function BookshelfScreen() {
   const insets = useSafeAreaInsets();
@@ -98,9 +104,18 @@ export default function BookshelfScreen() {
           data={filteredStories()}
           keyExtractor={(item) => item.id}
           numColumns={2}
+          columnWrapperStyle={styles.row}
           contentContainerStyle={styles.storiesGrid}
-          renderItem={({ item }) => (
-            <View style={styles.storyCardContainer}>
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item, index }) => (
+            <View style={[
+              styles.storyCardContainer,
+              { 
+                width: CARD_WIDTH,
+                marginLeft: index % 2 === 0 ? 0 : CARD_MARGIN,
+                marginRight: index % 2 === 0 ? CARD_MARGIN : 0,
+              }
+            ]}>
               <StoryCard 
                 story={item} 
                 size="medium"
@@ -132,26 +147,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: 16,
+    paddingHorizontal: HORIZONTAL_PADDING,
   },
   header: {
     marginVertical: 24,
   },
   title: {
     fontFamily: 'Nunito-ExtraBold',
-    fontSize: 28,
+    fontSize: 32,
     color: colors.white,
+    letterSpacing: -0.5,
   },
   tabsContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 24,
+    paddingHorizontal: 4,
   },
   tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginRight: 12,
+    borderRadius: 25,
     backgroundColor: colors.card,
+    minWidth: 70,
+    alignItems: 'center',
   },
   activeTab: {
     backgroundColor: colors.primary,
@@ -165,11 +184,15 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   storiesGrid: {
-    paddingBottom: 24,
+    paddingBottom: 32,
+  },
+  row: {
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   storyCardContainer: {
-    width: '50%',
-    padding: 8,
+    height: 240,
+    marginBottom: 8,
   },
   loadingContainer: {
     flex: 1,
@@ -193,5 +216,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: 24,
+    lineHeight: 24,
   },
 });
