@@ -1,0 +1,425 @@
+import { supabase } from '@/lib/supabase';
+import { ReadingSession, ReadingSessionStats, Story } from '@/types';
+
+/**
+ * Start a new reading session
+ */
+export async function startReadingSession(userId: string, storyId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('reading_sessions')
+      .insert({
+        user_id: userId,
+        story_id: storyId,
+        duration: 0,
+        completed: false,
+        started_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      console.error('Error starting reading session:', error);
+      return null;
+    }
+
+    return data.id;
+  } catch (error) {
+    console.error('Error in startReadingSession:', error);
+    return null;
+  }
+}
+
+/**
+ * Update an existing reading session
+ */
+export async function updateReadingSession(
+  sessionId: string,
+  duration: number,
+  completed: boolean = false
+): Promise<void> {
+  try {
+    const updateData: any = {
+      duration,
+      completed,
+    };
+
+    // If session is completed, set ended_at
+    if (completed) {
+      updateData.ended_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+      .from('reading_sessions')
+      .update(updateData)
+      .eq('id', sessionId);
+
+    if (error) {
+      console.error('Error updating reading session:', error);
+    }
+  } catch (error) {
+    console.error('Error in updateReadingSession:', error);
+  }
+}
+
+/**
+ * End a reading session
+ */
+export async function endReadingSession(
+  sessionId: string,
+  duration: number,
+  completed: boolean = false
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('reading_sessions')
+      .update({
+        duration,
+        completed,
+        ended_at: new Date().toISOString(),
+      })
+      .eq('id', sessionId);
+
+    if (error) {
+      console.error('Error ending reading session:', error);
+    }
+  } catch (error) {
+    console.error('Error in endReadingSession:', error);
+  }
+}
+
+/**
+ * Get reading sessions for a user
+ */
+export async function getUserReadingSessions(
+  userId: string,
+  limit?: number,
+  includeStory: boolean = false
+): Promise<ReadingSession[]> {
+  try {
+    let query = supabase
+      .from('reading_sessions')
+      .select(includeStory ? 'id, user_id, story_id, duration, completed, started_at, ended_at, stories(id, title, content, cover_image, categories, reading_time, has_audio)' : '*')
+      .eq('user_id', userId)
+      .order('started_at', { ascending: false });
+
+    if (limit) {
+      query = query.limit(limit);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching reading sessions:', error);
+      return [];
+    }
+
+    return data?.map((session: any) => ({
+      id: session.id,
+      user_id: session.user_id,
+      story_id: session.story_id,
+      duration: session.duration,
+      completed: session.completed,
+      started_at: session.started_at,
+      ended_at: session.ended_at,
+      story: includeStory && session.stories ? transformDbStoryToStory(session.stories) : undefined,
+    })) || [];
+  } catch (error) {
+    console.error('Error in getUserReadingSessions:', error);
+    return [];
+  }
+}
+
+/**
+ * Get reading sessions for a specific story
+ */
+export async function getStoryReadingSessions(
+  userId: string,
+  storyId: string
+): Promise<ReadingSession[]> {
+  try {
+    const { data, error } = await supabase
+      .from('reading_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('story_id', storyId)
+      .order('started_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching story reading sessions:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getStoryReadingSessions:', error);
+    return [];
+  }
+}
+
+/**
+ * Get reading session statistics for a user
+ */
+export async function getReadingSessionStats(userId: string): Promise<ReadingSessionStats> {
+  try {
+    // Get all reading sessions
+    const { data: sessions, error } = await supabase
+      .from('reading_sessions')
+      .select('id, user_id, story_id, duration, completed, started_at, ended_at, stories(id, title, content, cover_image, categories, reading_time, has_audio)')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching reading session stats:', error);
+      return createEmptyStats();
+    }
+
+    if (!sessions || sessions.length === 0) {
+      return createEmptyStats();
+    }
+
+    // Calculate statistics
+    const typedSessions = sessions as any[];
+    const totalSessions = typedSessions.length;
+    const completedSessions = typedSessions.filter(s => s.completed).length;
+    const totalReadingTime = typedSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const averageSessionTime = totalReadingTime / totalSessions;
+
+    // Calculate daily reading time (today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todaySessions = typedSessions.filter(s => 
+      new Date(s.started_at) >= today
+    );
+    const dailyReadingTime = todaySessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+
+    // Calculate weekly reading time (this week)
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    const weekSessions = typedSessions.filter(s => 
+      new Date(s.started_at) >= weekStart
+    );
+    const weeklyReadingTime = weekSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+
+    // Find most read story
+    const storyStats = new Map<string, { story: any, sessionCount: number, totalTime: number }>();
+    
+    typedSessions.forEach(session => {
+      if (session.stories) {
+        const storyId = session.story_id;
+        const existing = storyStats.get(storyId);
+        
+        if (existing) {
+          existing.sessionCount++;
+          existing.totalTime += session.duration || 0;
+        } else {
+          storyStats.set(storyId, {
+            story: session.stories,
+            sessionCount: 1,
+            totalTime: session.duration || 0,
+          });
+        }
+      }
+    });
+
+    // Find the story with most sessions
+    let mostReadStory: ReadingSessionStats['mostReadStory'];
+    let maxSessions = 0;
+    
+    storyStats.forEach(stat => {
+      if (stat.sessionCount > maxSessions) {
+        maxSessions = stat.sessionCount;
+        mostReadStory = {
+          story: transformDbStoryToStory(stat.story),
+          sessionCount: stat.sessionCount,
+          totalTime: stat.totalTime,
+        };
+      }
+    });
+
+    return {
+      totalSessions,
+      totalReadingTime,
+      averageSessionTime,
+      completedSessions,
+      dailyReadingTime,
+      weeklyReadingTime,
+      mostReadStory,
+    };
+  } catch (error) {
+    console.error('Error in getReadingSessionStats:', error);
+    return createEmptyStats();
+  }
+}
+
+/**
+ * Get today's reading sessions
+ */
+export async function getTodayReadingSessions(userId: string): Promise<ReadingSession[]> {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { data, error } = await supabase
+      .from('reading_sessions')
+      .select('id, user_id, story_id, duration, completed, started_at, ended_at, stories(id, title, content, cover_image, categories, reading_time, has_audio)')
+      .eq('user_id', userId)
+      .gte('started_at', today.toISOString())
+      .lt('started_at', tomorrow.toISOString())
+      .order('started_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching today reading sessions:', error);
+      return [];
+    }
+
+    return data?.map((session: any) => ({
+      id: session.id,
+      user_id: session.user_id,
+      story_id: session.story_id,
+      duration: session.duration,
+      completed: session.completed,
+      started_at: session.started_at,
+      ended_at: session.ended_at,
+      story: session.stories ? transformDbStoryToStory(session.stories) : undefined,
+    })) || [];
+  } catch (error) {
+    console.error('Error in getTodayReadingSessions:', error);
+    return [];
+  }
+}
+
+/**
+ * Check if user has read today (for streak calculation)
+ */
+export async function hasReadToday(userId: string): Promise<boolean> {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { data, error, count } = await supabase
+      .from('reading_sessions')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('completed', true)
+      .gte('started_at', today.toISOString())
+      .lt('started_at', tomorrow.toISOString());
+
+    if (error) {
+      console.error('Error checking today reading:', error);
+      return false;
+    }
+
+    return (count || 0) > 0;
+  } catch (error) {
+    console.error('Error in hasReadToday:', error);
+    return false;
+  }
+}
+
+/**
+ * Get reading streaks and patterns
+ */
+export async function getReadingStreak(userId: string): Promise<{ currentStreak: number; longestStreak: number }> {
+  try {
+    // Get all completed sessions grouped by date
+    const { data, error } = await supabase
+      .from('reading_sessions')
+      .select('started_at')
+      .eq('user_id', userId)
+      .eq('completed', true)
+      .order('started_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching reading streak:', error);
+      return { currentStreak: 0, longestStreak: 0 };
+    }
+
+    if (!data || data.length === 0) {
+      return { currentStreak: 0, longestStreak: 0 };
+    }
+
+    // Group sessions by date
+    const dateSet = new Set<string>();
+    data.forEach(session => {
+      const date = new Date(session.started_at);
+      date.setHours(0, 0, 0, 0);
+      dateSet.add(date.toISOString().split('T')[0]);
+    });
+
+    const uniqueDates = Array.from(dateSet).sort().reverse();
+    
+    // Calculate current streak
+    let currentStreak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    for (let i = 0; i < uniqueDates.length; i++) {
+      const sessionDate = new Date(uniqueDates[i]);
+      const expectedDate = new Date(today);
+      expectedDate.setDate(expectedDate.getDate() - i);
+      
+      if (sessionDate.getTime() === expectedDate.getTime()) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+
+    // Calculate longest streak
+    let longestStreak = 0;
+    let tempStreak = 0;
+    
+    for (let i = 0; i < uniqueDates.length - 1; i++) {
+      const currentDate = new Date(uniqueDates[i]);
+      const nextDate = new Date(uniqueDates[i + 1]);
+      const dayDiff = (currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      if (dayDiff === 1) {
+        tempStreak++;
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak + 1);
+        tempStreak = 0;
+      }
+    }
+    
+    longestStreak = Math.max(longestStreak, tempStreak + 1);
+
+    return { currentStreak, longestStreak };
+  } catch (error) {
+    console.error('Error in getReadingStreak:', error);
+    return { currentStreak: 0, longestStreak: 0 };
+  }
+}
+
+// Helper functions
+function createEmptyStats(): ReadingSessionStats {
+  return {
+    totalSessions: 0,
+    totalReadingTime: 0,
+    averageSessionTime: 0,
+    completedSessions: 0,
+    dailyReadingTime: 0,
+    weeklyReadingTime: 0,
+  };
+}
+
+function transformDbStoryToStory(dbStory: any): Story {
+  return {
+    id: dbStory.id,
+    title: dbStory.title,
+    content: dbStory.content,
+    cover_image: dbStory.cover_image,
+    categories: dbStory.categories || [],
+    reading_time: dbStory.reading_time,
+    has_audio: dbStory.has_audio || false,
+    progress: 0,
+    is_favorite: false,
+    completed: false,
+    is_new: false,
+  };
+} 

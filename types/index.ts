@@ -37,6 +37,32 @@ export interface UserProfile {
   onboarding_completed: boolean;
 }
 
+// Reading Session types
+export interface ReadingSession {
+  id: string;
+  user_id: string;
+  story_id: string;
+  duration: number; // in seconds
+  completed: boolean;
+  started_at: string;
+  ended_at?: string;
+  story?: Story; // Populated when joining with stories table
+}
+
+export interface ReadingSessionStats {
+  totalSessions: number;
+  totalReadingTime: number; // in seconds
+  averageSessionTime: number; // in seconds
+  completedSessions: number;
+  dailyReadingTime: number; // in seconds for today
+  weeklyReadingTime: number; // in seconds for this week
+  mostReadStory?: {
+    story: Story;
+    sessionCount: number;
+    totalTime: number;
+  };
+}
+
 // Achievement types
 export interface Achievement {
   id: string;

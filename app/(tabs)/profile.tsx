@@ -1,64 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   ScrollView, 
-  TouchableOpacity, 
-  Switch, 
-  Alert 
+  TouchableOpacity,
+  Switch
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Settings, LogOut, ChevronRight } from 'lucide-react-native';
-import { useUser } from '@/hooks/useUser';
-import AchievementsList from '@/components/AchievementsList';
-import ReadingStats from '@/components/ReadingStats';
+import { 
+  Settings, 
+  Edit3, 
+  LogOut, 
+  Globe,
+  BarChart3
+} from 'lucide-react-native';
 import { colors } from '@/constants/colors';
+import { useUser } from '@/hooks/useUser';
 import { supabase } from '@/lib/supabase';
+import ReadingStats from '@/components/ReadingStats';
+import AchievementsList from '@/components/AchievementsList';
+import ReadingInsights from '@/components/ReadingInsights';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, profile, logout, refreshProfile } = useUser();
-  const [darkMode, setDarkMode] = useState(true);
-  const [polishLanguage, setPolishLanguage] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
-  
-  useEffect(() => {
-    if (profile) {
-      setPolishLanguage(profile.language === 'pl');
-    }
-  }, [profile]);
+  const { user, profile, refreshProfile } = useUser();
+  const [polishLanguage, setPolishLanguage] = useState(profile?.language === 'pl');
+  const [showInsights, setShowInsights] = useState(false);
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsLoggingOut(true);
-              const { error } = await supabase.auth.signOut();
-              if (error) throw error;
-              router.replace('/auth/sign-in');
-            } catch (error: any) {
-              Alert.alert('Error', 'Failed to logout. Please try again.');
-              console.error('Logout error:', error);
-            } finally {
-              setIsLoggingOut(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.replace('/auth/sign-in');
+  };
+
+  const handleEditProfile = () => {
+    router.push('/onboarding?edit=true');
   };
 
   const toggleLanguage = async () => {
@@ -81,6 +59,23 @@ export default function ProfileScreen() {
     }
   };
 
+  if (showInsights) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <View style={styles.insightsHeader}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => setShowInsights(false)}
+          >
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.insightsTitle}>Reading Insights</Text>
+        </View>
+        <ReadingInsights userId={user?.id} />
+      </View>
+    );
+  }
+
   return (
     <ScrollView 
       style={[styles.container, { paddingTop: insets.top }]}
@@ -100,7 +95,16 @@ export default function ProfileScreen() {
       
       {/* Reading Stats */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Reading Stats</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Reading Stats</Text>
+          <TouchableOpacity 
+            style={styles.insightsButton}
+            onPress={() => setShowInsights(true)}
+          >
+            <BarChart3 size={20} color={colors.primary} />
+            <Text style={styles.insightsButtonText}>Insights</Text>
+          </TouchableOpacity>
+        </View>
         <ReadingStats userId={user?.id} />
       </View>
       
@@ -113,53 +117,33 @@ export default function ProfileScreen() {
       {/* Settings */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Settings</Text>
-        <View style={styles.settingsContainer}>
-          {/* Dark Mode Toggle (Always on for this app) */}
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Dark Mode</Text>
-            <Switch
-              value={darkMode}
-              onValueChange={() => {}}
-              disabled={true}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.white}
-            />
+        
+        <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
+          <View style={styles.settingLeft}>
+            <Edit3 size={24} color={colors.textSecondary} />
+            <Text style={styles.settingText}>Edit Profile</Text>
           </View>
-          
-          {/* Polish Language Toggle */}
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>
-              {polishLanguage ? 'Polski' : 'English'}
-            </Text>
-            <Switch
-              value={polishLanguage}
-              onValueChange={toggleLanguage}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              thumbColor={colors.white}
-            />
+        </TouchableOpacity>
+        
+        <View style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <Globe size={24} color={colors.textSecondary} />
+            <Text style={styles.settingText}>Polish Language</Text>
           </View>
-          
-          {/* Edit Child Profile */}
-          <TouchableOpacity 
-            style={styles.settingRow}
-            onPress={() => router.push('/onboarding?edit=true')}
-          >
-            <Text style={styles.settingLabel}>Edit Child Profile</Text>
-            <ChevronRight size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          
-          {/* Logout Button */}
-          <TouchableOpacity 
-            style={[styles.settingRow, styles.logoutRow]}
-            onPress={handleLogout}
-            disabled={isLoggingOut}
-          >
-            <Text style={styles.logoutText}>
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
-            </Text>
-            <LogOut size={20} color={colors.error} />
-          </TouchableOpacity>
+          <Switch
+            value={polishLanguage}
+            onValueChange={toggleLanguage}
+            trackColor={{ false: colors.background, true: colors.primary }}
+            thumbColor={colors.white}
+          />
         </View>
+        
+        <TouchableOpacity style={styles.settingItem} onPress={handleSignOut}>
+          <View style={styles.settingLeft}>
+            <LogOut size={24} color={colors.error} />
+            <Text style={[styles.settingText, { color: colors.error }]}>Sign Out</Text>
+          </View>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -206,12 +190,40 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginBottom: 16,
   },
-  settingsContainer: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    overflow: 'hidden',
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  settingRow: {
+  insightsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  insightsButtonText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 16,
+    color: colors.primary,
+    marginLeft: 8,
+  },
+  insightsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  backButton: {
+    padding: 8,
+  },
+  backButtonText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 16,
+    color: colors.primary,
+  },
+  insightsTitle: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 20,
+    color: colors.white,
+  },
+  settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -220,17 +232,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  settingLabel: {
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingText: {
     fontFamily: 'Nunito-Regular',
     fontSize: 16,
     color: colors.white,
-  },
-  logoutRow: {
-    borderBottomWidth: 0,
-  },
-  logoutText: {
-    fontFamily: 'Nunito-Bold',
-    fontSize: 16,
-    color: colors.error,
+    marginLeft: 16,
   },
 });

@@ -1,38 +1,47 @@
 import { supabase } from '@/lib/supabase';
 import { Story, UserProfile } from '@/types';
-import { storyTemplates } from '@/constants/storyTemplates';
+import { startReadingSession, endReadingSession } from './readingSessionService';
 
 /**
  * Get a list of recommended stories based on user profile
  */
 export async function getRecommendedStories(profile: UserProfile | null): Promise<Story[]> {
-  if (!profile) {
-    return getMockStories();
+  try {
+    // Fetch all stories from database
+    const { data: stories, error } = await supabase
+      .from('stories')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching stories:', error);
+      return [];
+    }
+
+    if (!profile || !stories) {
+      return stories?.map(transformDbStoryToStory) || [];
+    }
+
+    // Filter stories based on user profile
+    const filteredStories = stories.filter(story => {
+      const ageMatch = story.age_range && 
+        profile.age >= story.age_range[0] && 
+        profile.age <= story.age_range[1];
+      
+      const interestMatch = story.categories && profile.interests && 
+        story.categories.some((category: string) => 
+          profile.interests.includes(category) || 
+          category.includes('age_') // Include age-appropriate categories
+        );
+      
+      return ageMatch || interestMatch;
+    });
+
+    return filteredStories.map(transformDbStoryToStory);
+  } catch (error) {
+    console.error('Error in getRecommendedStories:', error);
+    return [];
   }
-  
-  // In a real app, this would make API calls to get personalized stories
-  // For this MVP, we'll use mock data based on the profile
-  
-  // Filter story templates based on age and interests
-  const filteredTemplates = storyTemplates.filter(template => {
-    const ageMatch = profile.age >= template.age_range[0] && profile.age <= template.age_range[1];
-    const interestMatch = profile.interests.some(interest => 
-      template.category === interest || template.category.includes(interest)
-    );
-    
-    return ageMatch && interestMatch;
-  });
-  
-  // Mock the personalized stories
-  return filteredTemplates.map(template => ({
-    id: template.id,
-    title: template.title,
-    content: template.template.replace('[CHILD_NAME]', profile.child_name),
-    cover_image: `https://source.unsplash.com/random/800x600/?${template.category}`,
-    categories: [template.category],
-    reading_time: template.reading_time,
-    is_new: Math.random() > 0.7, // Randomly mark some as new
-  }));
 }
 
 /**
@@ -42,70 +51,206 @@ export async function getInProgressStories(userId: string | undefined): Promise<
   if (!userId) {
     return [];
   }
-  
-  // In a real app, fetch from Supabase
-  // For MVP, return mock data
-  return getMockStories().slice(0, 3).map(story => ({
-    ...story,
-    progress: Math.random() * 0.8, // Random progress between 0-80%
-  }));
+
+  try {
+    const { data: userStories, error } = await supabase
+      .from('user_stories')
+      .select(`
+        *,
+        stories (*)
+      `)
+      .eq('user_id', userId)
+      .eq('completed', false)
+      .gt('progress', 0)
+      .order('last_read_at', { ascending: false })
+      .limit(10);
+
+    if (error) {
+      console.error('Error fetching in-progress stories:', error);
+      return [];
+    }
+
+    return userStories?.map(userStory => ({
+      ...transformDbStoryToStory(userStory.stories),
+      progress: userStory.progress,
+      is_favorite: userStory.is_favorite,
+      completed: userStory.completed,
+    })) || [];
+  } catch (error) {
+    console.error('Error in getInProgressStories:', error);
+    return [];
+  }
 }
 
 /**
  * Get a specific story by ID
  */
 export async function getStoryById(storyId: string): Promise<Story | null> {
-  // In a real app, fetch from Supabase
-  // For MVP, return mock data
-  const mockStories = getMockStories();
-  const story = mockStories.find(s => s.id === storyId);
-  
-  if (!story) {
+  try {
+    const { data: story, error } = await supabase
+      .from('stories')
+      .select('*')
+      .eq('id', storyId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching story:', error);
+      return null;
+    }
+
+    return story ? transformDbStoryToStory(story) : null;
+  } catch (error) {
+    console.error('Error in getStoryById:', error);
     return null;
   }
-  
-  // Add more detailed content for the full story view
-  return {
-    ...story,
-    content: generateMockStoryContent(story.title),
-    progress: Math.random() > 0.7 ? Math.random() : 0,
-  };
 }
 
 /**
- * Get all stories
+ * Get all stories with pagination
  */
-export async function getAllStories(): Promise<Story[]> {
-  // In a real app, fetch from Supabase with pagination
-  // For MVP, return mock data
-  return getMockStories();
+export async function getAllStories(page: number = 0, limit: number = 20): Promise<Story[]> {
+  try {
+    const from = page * limit;
+    const to = from + limit - 1;
+
+    const { data: stories, error } = await supabase
+      .from('stories')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('Error fetching all stories:', error);
+      return [];
+    }
+
+    return stories?.map(transformDbStoryToStory) || [];
+  } catch (error) {
+    console.error('Error in getAllStories:', error);
+    return [];
+  }
 }
 
 /**
  * Search stories by query
  */
 export async function searchStories(query: string): Promise<Story[]> {
-  const allStories = getMockStories();
-  const lowercaseQuery = query.toLowerCase();
-  
-  return allStories.filter(story => 
-    story.title.toLowerCase().includes(lowercaseQuery) ||
-    (story.categories && story.categories.some(c => c.toLowerCase().includes(lowercaseQuery)))
-  );
+  if (!query.trim()) {
+    return getAllStories();
+  }
+
+  try {
+    const { data: stories, error } = await supabase
+      .from('stories')
+      .select('*')
+      .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error searching stories:', error);
+      return [];
+    }
+
+    // Additional filtering by categories if they contain the query
+    const filteredStories = stories?.filter(story => 
+      story.title.toLowerCase().includes(query.toLowerCase()) ||
+      story.content?.toLowerCase().includes(query.toLowerCase()) ||
+      (story.categories && story.categories.some((category: string) => 
+        category.toLowerCase().includes(query.toLowerCase())
+      ))
+    ) || [];
+
+    return filteredStories.map(transformDbStoryToStory);
+  } catch (error) {
+    console.error('Error in searchStories:', error);
+    return [];
+  }
 }
 
 /**
- * Get stories for a specific user
+ * Get stories for a specific user (with their reading progress)
  */
 export async function getUserStories(userId: string): Promise<Story[]> {
-  // In a real app, fetch from Supabase
-  // For MVP, return mock data with some completed and some favorites
-  return getMockStories().map(story => ({
-    ...story,
-    progress: Math.random(),
-    completed: Math.random() > 0.6,
-    is_favorite: Math.random() > 0.7,
-  }));
+  try {
+    const { data: userStories, error } = await supabase
+      .from('user_stories')
+      .select(`
+        *,
+        stories (*)
+      `)
+      .eq('user_id', userId)
+      .order('last_read_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user stories:', error);
+      return [];
+    }
+
+    return userStories?.map(userStory => ({
+      ...transformDbStoryToStory(userStory.stories),
+      progress: userStory.progress,
+      is_favorite: userStory.is_favorite,
+      completed: userStory.completed,
+    })) || [];
+  } catch (error) {
+    console.error('Error in getUserStories:', error);
+    return [];
+  }
+}
+
+/**
+ * Get user's favorite stories
+ */
+export async function getFavoriteStories(userId: string): Promise<Story[]> {
+  try {
+    const { data: userStories, error } = await supabase
+      .from('user_stories')
+      .select(`
+        *,
+        stories (*)
+      `)
+      .eq('user_id', userId)
+      .eq('is_favorite', true)
+      .order('last_read_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching favorite stories:', error);
+      return [];
+    }
+
+    return userStories?.map(userStory => ({
+      ...transformDbStoryToStory(userStory.stories),
+      progress: userStory.progress,
+      is_favorite: userStory.is_favorite,
+      completed: userStory.completed,
+    })) || [];
+  } catch (error) {
+    console.error('Error in getFavoriteStories:', error);
+    return [];
+  }
+}
+
+/**
+ * Get stories by category
+ */
+export async function getStoriesByCategory(category: string): Promise<Story[]> {
+  try {
+    const { data: stories, error } = await supabase
+      .from('stories')
+      .select('*')
+      .contains('categories', [category])
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching stories by category:', error);
+      return [];
+    }
+
+    return stories?.map(transformDbStoryToStory) || [];
+  } catch (error) {
+    console.error('Error in getStoriesByCategory:', error);
+    return [];
+  }
 }
 
 /**
@@ -118,126 +263,129 @@ export async function updateStoryProgress(params: {
   is_favorite: boolean;
   reading_time: number;
   completed: boolean;
+  sessionId?: string; // Optional session ID to track the session
 }): Promise<void> {
-  // In a real app, this would update Supabase
-  console.log('Updating story progress:', params);
-  
-  // If story is completed, update user's total_stories_read
-  if (params.completed) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('total_stories_read, total_reading_time')
-      .eq('id', params.user_id)
+  try {
+    // First, try to update existing user_story record
+    const { data: existingUserStory, error: fetchError } = await supabase
+      .from('user_stories')
+      .select('*')
+      .eq('user_id', params.user_id)
+      .eq('story_id', params.story_id)
       .single();
-    
-    if (profile) {
-      await supabase
-        .from('profiles')
-        .update({
-          total_stories_read: (profile.total_stories_read || 0) + 1,
-          total_reading_time: (profile.total_reading_time || 0) + params.reading_time,
-        })
-        .eq('id', params.user_id);
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      // PGRST116 is "not found" error, which is ok
+      console.error('Error fetching user story:', fetchError);
+      return;
     }
+
+    const updateData = {
+      user_id: params.user_id,
+      story_id: params.story_id,
+      progress: params.progress,
+      is_favorite: params.is_favorite,
+      completed: params.completed,
+      reading_time: params.reading_time,
+      last_read_at: new Date().toISOString(),
+    };
+
+    if (existingUserStory) {
+      // Update existing record
+      const { error: updateError } = await supabase
+        .from('user_stories')
+        .update({
+          progress: params.progress,
+          is_favorite: params.is_favorite,
+          completed: params.completed,
+          reading_time: (existingUserStory.reading_time || 0) + params.reading_time,
+          last_read_at: new Date().toISOString(),
+        })
+        .eq('user_id', params.user_id)
+        .eq('story_id', params.story_id);
+
+      if (updateError) {
+        console.error('Error updating user story:', updateError);
+        return;
+      }
+    } else {
+      // Insert new record
+      const { error: insertError } = await supabase
+        .from('user_stories')
+        .insert(updateData);
+
+      if (insertError) {
+        console.error('Error inserting user story:', insertError);
+        return;
+      }
+    }
+
+    // If story is completed, update user's total_stories_read and reading time
+    if (params.completed) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('total_stories_read, total_reading_time')
+        .eq('id', params.user_id)
+        .single();
+
+      if (profile) {
+        const wasAlreadyCompleted = existingUserStory?.completed || false;
+        const storyCountIncrement = wasAlreadyCompleted ? 0 : 1;
+
+        await supabase
+          .from('profiles')
+          .update({
+            total_stories_read: (profile.total_stories_read || 0) + storyCountIncrement,
+            total_reading_time: (profile.total_reading_time || 0) + params.reading_time,
+          })
+          .eq('id', params.user_id);
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in updateStoryProgress:', error);
   }
 }
 
 /**
- * Helper functions to generate mock data
+ * Get user's completed story count
  */
-function getMockStories(): Story[] {
-  const categories = [
-    'fairy_tale', 'adventure', 'animals', 'science', 
-    'fantasy', 'bedtime', 'age_3_plus', 'age_5_plus', 'age_8_plus'
-  ];
-  
-  return [
-    {
-      id: 'story1',
-      title: 'The Magical Forest Adventure',
-      cover_image: 'https://source.unsplash.com/random/800x600/?forest',
-      categories: ['adventure', 'fantasy', 'age_5_plus'],
-      reading_time: 5,
-      is_new: true,
-    },
-    {
-      id: 'story2',
-      title: 'Dinosaur Discovery',
-      cover_image: 'https://source.unsplash.com/random/800x600/?dinosaur',
-      categories: ['science', 'adventure', 'age_5_plus'],
-      reading_time: 7,
-    },
-    {
-      id: 'story3',
-      title: 'Sleepy Time with Moon and Stars',
-      cover_image: 'https://source.unsplash.com/random/800x600/?night,stars',
-      categories: ['bedtime', 'age_3_plus'],
-      reading_time: 4,
-    },
-    {
-      id: 'goldilocks',
-      title: 'Goldilocks and the Three Bears',
-      cover_image: 'https://source.unsplash.com/random/800x600/?bears',
-      categories: ['fairy_tale', 'age_3_plus'],
-      reading_time: 6,
-    },
-    {
-      id: 'little_red',
-      title: 'Little Red Riding Hood',
-      cover_image: 'https://source.unsplash.com/random/800x600/?forest,path',
-      categories: ['fairy_tale', 'age_3_plus'],
-      reading_time: 5,
-    },
-    {
-      id: 'space_adventure',
-      title: 'Space Explorer',
-      cover_image: 'https://source.unsplash.com/random/800x600/?space',
-      categories: ['science', 'adventure', 'age_8_plus'],
-      reading_time: 8,
-      has_audio: true,
-    },
-    {
-      id: 'ocean_adventure',
-      title: 'Under the Sea',
-      cover_image: 'https://source.unsplash.com/random/800x600/?ocean',
-      categories: ['adventure', 'animals', 'age_5_plus'],
-      reading_time: 6,
-      has_audio: true,
-    },
-    {
-      id: 'friendly_dragon',
-      title: 'The Friendly Dragon',
-      cover_image: 'https://source.unsplash.com/random/800x600/?dragon',
-      categories: ['fantasy', 'age_5_plus'],
-      reading_time: 7,
-    },
-  ];
+export async function getUserCompletedStoryCount(userId: string): Promise<number> {
+  try {
+    const { data, error, count } = await supabase
+      .from('user_stories')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('completed', true);
+
+    if (error) {
+      console.error('Error fetching completed story count:', error);
+      return 0;
+    }
+
+    return count || 0;
+  } catch (error) {
+    console.error('Error in getUserCompletedStoryCount:', error);
+    return 0;
+  }
 }
 
-function generateMockStoryContent(title: string): string {
-  return `Once upon a time, in a land far away, there lived a curious child who loved adventures. 
-  
-This child's name was Emma, and she had the brightest smile and the kindest heart.
-
-One sunny morning, Emma decided to explore the woods behind her house. She packed a small backpack with a sandwich, an apple, and her favorite book.
-
-"Be back before sunset!" called her mother as Emma skipped happily down the garden path.
-
-The woods were full of wonders. Birds sang in the trees, squirrels jumped from branch to branch, and butterflies danced in the air.
-
-Emma followed a narrow path deeper into the forest. She had never been this far before, but she wasn't afraid. She was brave and full of curiosity.
-
-Suddenly, she came across a small clearing. In the middle stood an ancient oak tree, larger than any she had seen before. Its branches reached up toward the sky like giant arms.
-
-As Emma approached the tree, she noticed something strange. There was a tiny door at the base of the trunk! It was about the size of a book, painted blue with a golden doorknob.
-
-"How curious!" Emma whispered to herself. She knelt down and knocked gently on the door.
-
-To her surprise, the door swung open! Inside was a winding staircase, leading down under the tree.
-
-Should Emma go down the stairs? What adventures might await her below? What magical creatures might she meet?
-
-Emma took a deep breath, adjusted her backpack, and stepped through the door. This was just the beginning of her greatest adventure yet.
-
-The End.`;
+/**
+ * Transform database story object to app Story type
+ */
+function transformDbStoryToStory(dbStory: any): Story {
+  return {
+    id: dbStory.id,
+    title: dbStory.title,
+    content: dbStory.content,
+    cover_image: dbStory.cover_image,
+    categories: dbStory.categories || [],
+    reading_time: dbStory.reading_time,
+    has_audio: dbStory.has_audio || false,
+    // These will be set by other functions if user-specific data is available
+    progress: 0,
+    is_favorite: false,
+    completed: false,
+    is_new: false, // Could be determined by checking created_at vs user's last login
+  };
 }
