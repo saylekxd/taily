@@ -14,7 +14,8 @@ import {
   Pause, 
   Heart, 
   BookOpen, 
-  Share2 
+  Share2,
+  RotateCcw
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -260,6 +261,33 @@ export default function StoryScreen() {
     console.log('ScrollView layout changed:', { height });
   };
 
+  const revertReading = async () => {
+    // Reset progress to beginning
+    setProgress(0);
+    setIsCompleted(false);
+    
+    // Scroll to top
+    scrollViewRef.current?.scrollTo({
+      y: 0,
+      animated: true,
+    });
+    
+    // Update user_stories with reset progress
+    if (user?.id && story?.id) {
+      await createOrUpdateUserStory({
+        user_id: user.id,
+        story_id: story.id,
+        progress: 0,
+        is_favorite: isFavorite,
+        completed: false,
+      });
+      
+      // Reset the last save time
+      lastSaveTimeRef.current = Date.now();
+      console.log('Reading progress reverted to beginning');
+    }
+  };
+
   const toggleFavorite = async () => {
     const newFavoriteState = !isFavorite;
     setIsFavorite(newFavoriteState);
@@ -359,6 +387,10 @@ export default function StoryScreen() {
           ) : (
             <Play size={24} color={colors.white} />
           )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity style={styles.controlButton} onPress={revertReading}>
+          <RotateCcw size={24} color={colors.white} />
         </TouchableOpacity>
         
         <TouchableOpacity style={styles.controlButton} onPress={toggleFavorite}>
@@ -477,13 +509,14 @@ const styles = StyleSheet.create({
   },
   completionBanner: {
     position: 'absolute',
-    top: 0,
+    top: 100, // Adjust to not overlay navbar
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 80,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
+    zIndex: 1, // Lower z-index so navbar stays on top
   },
   completionText: {
     fontFamily: 'Nunito-ExtraBold',
