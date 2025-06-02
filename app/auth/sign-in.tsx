@@ -12,39 +12,44 @@ import {
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/hooks/useI18n';
 import { colors } from '@/constants/colors';
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   const handleSignIn = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
 
-      if (error) throw error;
+    setLoading(true);
+    setError('');
 
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (signInError) {
+      setError(signInError.message);
       setLoading(false);
+    } else {
+      // Navigation is handled by the auth state change
     }
   };
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
@@ -55,18 +60,16 @@ export default function SignInScreen() {
             source={{ uri: 'https://images.pexels.com/photos/4021521/pexels-photo-4021521.jpeg' }}
             style={styles.logo}
           />
-          <Text style={styles.title}>Welcome Back!</Text>
-          <Text style={styles.subtitle}>Sign in to continue reading magical stories</Text>
+          <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
+          <Text style={styles.subtitle}>{t('auth.signInSubtitle')}</Text>
         </View>
 
-        {error && (
-          <Text style={styles.errorText}>{error}</Text>
-        )}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <View style={styles.form}>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={t('common.email')}
             placeholderTextColor={colors.textSecondary}
             value={email}
             onChangeText={setEmail}
@@ -76,19 +79,12 @@ export default function SignInScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Password"
+            placeholder={t('common.password')}
             placeholderTextColor={colors.textSecondary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
           />
-
-          <TouchableOpacity 
-            style={styles.forgotPassword}
-            onPress={() => router.push('/auth/forgot-password')}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
@@ -96,16 +92,25 @@ export default function SignInScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? t('common.loading') : t('auth.signIn')}
             </Text>
           </TouchableOpacity>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <Link href="/auth/sign-up" style={styles.link}>
-              Sign Up
-            </Link>
-          </View>
+          <TouchableOpacity 
+            style={styles.linkButton}
+            onPress={() => router.push('/auth/forgot-password')}
+          >
+            <Text style={styles.linkText}>{t('auth.forgotPassword')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>{t('auth.dontHaveAccount')}</Text>
+          <TouchableOpacity 
+            onPress={() => router.push('/auth/sign-up')}
+          >
+            <Text style={styles.linkText}>{t('auth.signUp')}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -173,11 +178,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Bold',
     fontSize: 16,
   },
-  forgotPassword: {
+  linkButton: {
     alignSelf: 'flex-end',
     marginBottom: 24,
   },
-  forgotPasswordText: {
+  linkText: {
     color: colors.primary,
     fontFamily: 'Nunito-Bold',
     fontSize: 14,
@@ -190,11 +195,6 @@ const styles = StyleSheet.create({
   footerText: {
     color: colors.textSecondary,
     fontFamily: 'Nunito-Regular',
-    fontSize: 14,
-  },
-  link: {
-    color: colors.primary,
-    fontFamily: 'Nunito-Bold',
     fontSize: 14,
   },
   errorText: {

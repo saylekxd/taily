@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
+import { useI18n } from '@/hooks/useI18n';
 import { supabase } from '@/lib/supabase';
 import ReadingStats from '@/components/ReadingStats';
 import AchievementsList from '@/components/AchievementsList';
@@ -27,8 +28,14 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, profile, refreshProfile } = useUser();
+  const { t } = useI18n();
   const [polishLanguage, setPolishLanguage] = useState(profile?.language === 'pl');
   const [showInsights, setShowInsights] = useState(false);
+
+  // Update toggle state when profile changes
+  useEffect(() => {
+    setPolishLanguage(profile?.language === 'pl');
+  }, [profile?.language]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -43,6 +50,8 @@ export default function ProfileScreen() {
     if (!user?.id) return;
     
     const newLanguage = !polishLanguage ? 'pl' : 'en';
+    
+    // Optimistically update UI
     setPolishLanguage(!polishLanguage);
     
     // Update language preference in Supabase
@@ -53,9 +62,11 @@ export default function ProfileScreen() {
       
     if (error) {
       console.error('Error updating language preference:', error);
-      setPolishLanguage(polishLanguage); // Revert UI state if update fails
+      // Revert UI state if update fails
+      setPolishLanguage(polishLanguage); 
     } else {
-      refreshProfile(); // Refresh profile data
+      // Refresh profile data to trigger i18n updates
+      await refreshProfile();
     }
   };
 
@@ -67,9 +78,9 @@ export default function ProfileScreen() {
             style={styles.backButton}
             onPress={() => setShowInsights(false)}
           >
-            <Text style={styles.backButtonText}>← Back</Text>
+            <Text style={styles.backButtonText}>← {t('common.back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.insightsTitle}>Reading Insights</Text>
+          <Text style={styles.insightsTitle}>{t('profile.readingInsights')}</Text>
         </View>
         <ReadingInsights userId={user?.id} />
       </View>
@@ -84,11 +95,11 @@ export default function ProfileScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.title}>{t('profile.title')}</Text>
         <View style={styles.childInfoContainer}>
-          <Text style={styles.childName}>{profile?.child_name || 'Explorer'}</Text>
+          <Text style={styles.childName}>{profile?.child_name || t('profile.explorer')}</Text>
           <Text style={styles.childAge}>
-            {profile?.age ? `${profile.age} years old` : ''}
+            {profile?.age ? t('profile.yearsOld', { age: profile.age }) : ''}
           </Text>
         </View>
       </View>
@@ -96,13 +107,13 @@ export default function ProfileScreen() {
       {/* Reading Stats */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Reading Stats</Text>
+          <Text style={styles.sectionTitle}>{t('profile.readingStats')}</Text>
           <TouchableOpacity 
             style={styles.insightsButton}
             onPress={() => setShowInsights(true)}
           >
             <BarChart3 size={20} color={colors.primary} />
-            <Text style={styles.insightsButtonText}>Insights</Text>
+            <Text style={styles.insightsButtonText}>{t('profile.insights')}</Text>
           </TouchableOpacity>
         </View>
         <ReadingStats userId={user?.id} />
@@ -110,25 +121,25 @@ export default function ProfileScreen() {
       
       {/* Achievements */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Achievements</Text>
+        <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
         <AchievementsList userId={user?.id} />
       </View>
       
       {/* Settings */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Settings</Text>
+        <Text style={styles.sectionTitle}>{t('profile.settings')}</Text>
         
         <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
           <View style={styles.settingLeft}>
             <Edit3 size={24} color={colors.textSecondary} />
-            <Text style={styles.settingText}>Edit Profile</Text>
+            <Text style={styles.settingText}>{t('profile.editProfile')}</Text>
           </View>
         </TouchableOpacity>
         
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
             <Globe size={24} color={colors.textSecondary} />
-            <Text style={styles.settingText}>Polish Language</Text>
+            <Text style={styles.settingText}>{t('profile.polishLanguage')}</Text>
           </View>
           <Switch
             value={polishLanguage}
@@ -141,7 +152,7 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.settingItem} onPress={handleSignOut}>
           <View style={styles.settingLeft}>
             <LogOut size={24} color={colors.error} />
-            <Text style={[styles.settingText, { color: colors.error }]}>Sign Out</Text>
+            <Text style={[styles.settingText, { color: colors.error }]}>{t('profile.signOut')}</Text>
           </View>
         </TouchableOpacity>
       </View>

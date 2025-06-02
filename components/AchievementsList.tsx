@@ -8,6 +8,7 @@ import {
   Image 
 } from 'react-native';
 import { getUserAchievements } from '@/services/achievementService';
+import { useI18n } from '@/hooks/useI18n';
 import { colors } from '@/constants/colors';
 import { Lock } from 'lucide-react-native';
 import { Achievement } from '@/types';
@@ -17,6 +18,7 @@ type AchievementsListProps = {
 };
 
 export default function AchievementsList({ userId }: AchievementsListProps) {
+  const { t } = useI18n();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -26,17 +28,25 @@ export default function AchievementsList({ userId }: AchievementsListProps) {
       
       setLoading(true);
       const userAchievements = await getUserAchievements(userId);
-      setAchievements(userAchievements);
+      
+      // Translate achievement names and descriptions
+      const translatedAchievements = userAchievements.map(achievement => ({
+        ...achievement,
+        name: t(`achievementNames.${achievement.id}`) || achievement.name,
+        description: t(`achievementDescriptions.${achievement.id}`) || achievement.description,
+      }));
+      
+      setAchievements(translatedAchievements);
       setLoading(false);
     }
     
     loadAchievements();
-  }, [userId]);
+  }, [userId, t]);
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading achievements...</Text>
+        <Text style={styles.loadingText}>{t('achievements.loadingAchievements')}</Text>
       </View>
     );
   }
@@ -89,7 +99,7 @@ export default function AchievementsList({ userId }: AchievementsListProps) {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>
-              No achievements yet. Keep reading to unlock them!
+              {t('achievements.noAchievements')}
             </Text>
           </View>
         }

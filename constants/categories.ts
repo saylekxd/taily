@@ -1,55 +1,60 @@
 import { Category } from '@/types';
 import { colors } from './colors';
 
-export const categories: Category[] = [
+// Base categories structure with IDs for translation
+const baseCategories = [
   {
     id: 'age_3_plus',
-    name: 'Ages 3+',
     color: colors.primary,
   },
   {
     id: 'age_5_plus',
-    name: 'Ages 5+',
     color: colors.secondary,
   },
   {
     id: 'age_8_plus',
-    name: 'Ages 8+',
     color: colors.accent,
   },
   {
     id: 'animals',
-    name: 'Animals',
     color: '#8B5CF6',
   },
   {
     id: 'adventure',
-    name: 'Adventure',
     color: '#F59E0B',
   },
   {
     id: 'fairy_tale',
-    name: 'Fairy Tales',
     color: '#EC4899',
   },
   {
     id: 'science',
-    name: 'Science',
     color: '#10B981',
   },
   {
     id: 'fantasy',
-    name: 'Fantasy',
     color: '#6366F1',
   },
   {
     id: 'bedtime',
-    name: 'Bedtime',
     color: '#8B5CF6',
   },
   {
     id: 'audio',
-    name: 'Audio',
     color: '#F43F5E',
   },
 ];
+
+// Function to get translated categories
+export const getTranslatedCategories = (t: (key: string) => string): Category[] => {
+  return baseCategories.map(category => ({
+    ...category,
+    name: t(`categories.${category.id}`),
+  }));
+};
+
+// Export base categories for backwards compatibility
+export const categories: Category[] = baseCategories.map(category => ({
+  ...category,
+  name: category.id, // Fallback to ID if no translation function provided
+}));

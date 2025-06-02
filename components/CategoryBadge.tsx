@@ -1,5 +1,6 @@
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { colors } from '@/constants/colors';
+import { useI18n } from '@/hooks/useI18n';
 import { Category } from '@/types';
 
 type CategoryBadgeProps = {
@@ -13,6 +14,8 @@ export default function CategoryBadge({
   isSelected, 
   onPress 
 }: CategoryBadgeProps) {
+  const { t } = useI18n();
+
   return (
     <TouchableOpacity
       style={[
@@ -27,7 +30,7 @@ export default function CategoryBadge({
         styles.text,
         isSelected && styles.selectedText
       ]}>
-        {category.name}
+        {t(`categories.${category.id}`) || category.name}
       </Text>
     </TouchableOpacity>
   );

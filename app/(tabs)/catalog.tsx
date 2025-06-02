@@ -15,9 +15,10 @@ import { Search, X } from 'lucide-react-native';
 import StoryCard from '@/components/StoryCard';
 import CategoryBadge from '@/components/CategoryBadge';
 import { colors } from '@/constants/colors';
+import { useI18n } from '@/hooks/useI18n';
 import { getAllStories, searchStories } from '@/services/storyService';
 import { Story, Category } from '@/types';
-import { categories } from '@/constants/categories';
+import { getTranslatedCategories } from '@/constants/categories';
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_MARGIN = 8;
@@ -27,12 +28,16 @@ const CARD_WIDTH = (screenWidth - (HORIZONTAL_PADDING * 2) - (CARD_MARGIN * 3)) 
 export default function CatalogScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { t } = useI18n();
   const [stories, setStories] = useState<Story[]>([]);
   const [filteredStories, setFilteredStories] = useState<Story[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Get translated categories
+  const translatedCategories = getTranslatedCategories(t);
+
   useEffect(() => {
     const loadStories = async () => {
       setIsLoading(true);
@@ -79,14 +84,14 @@ export default function CatalogScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Story Catalog</Text>
+        <Text style={styles.title}>{t('catalog.title')}</Text>
         
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Search size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search stories..."
+            placeholder={t('catalog.searchPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -107,7 +112,7 @@ export default function CatalogScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesContainer}
         >
-          {categories.map((category: Category) => (
+          {translatedCategories.map((category: Category) => (
             <CategoryBadge
               key={category.id}
               category={category}
@@ -121,7 +126,7 @@ export default function CatalogScreen() {
       {/* Stories Grid */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading stories...</Text>
+          <Text style={styles.loadingText}>{t('common.loading')}</Text>
         </View>
       ) : (
         <FlatList
@@ -150,7 +155,7 @@ export default function CatalogScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                No stories found. Try a different search or category.
+                {t('catalog.noStories')}
               </Text>
             </View>
           }

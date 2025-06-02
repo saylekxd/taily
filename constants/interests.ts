@@ -1,19 +1,34 @@
 import { Interest } from '@/types';
 
-export const interests: Interest[] = [
-  { id: 'animals', name: 'Animals' },
-  { id: 'adventure', name: 'Adventures' },
-  { id: 'fairy_tales', name: 'Fairy Tales' },
-  { id: 'science', name: 'Science' },
-  { id: 'nature', name: 'Nature' },
-  { id: 'fantasy', name: 'Fantasy' },
-  { id: 'space', name: 'Space' },
-  { id: 'dinosaurs', name: 'Dinosaurs' },
-  { id: 'princesses', name: 'Princesses' },
-  { id: 'superheroes', name: 'Superheroes' },
-  { id: 'robots', name: 'Robots' },
-  { id: 'sports', name: 'Sports' },
-  { id: 'music', name: 'Music' },
-  { id: 'friendship', name: 'Friendship' },
-  { id: 'vehicles', name: 'Vehicles' },
+// Base interests structure with IDs for translation
+const baseInterests = [
+  { id: 'animals' },
+  { id: 'adventure' },
+  { id: 'fairy_tales' },
+  { id: 'science' },
+  { id: 'nature' },
+  { id: 'fantasy' },
+  { id: 'space' },
+  { id: 'dinosaurs' },
+  { id: 'princesses' },
+  { id: 'superheroes' },
+  { id: 'robots' },
+  { id: 'sports' },
+  { id: 'music' },
+  { id: 'friendship' },
+  { id: 'vehicles' },
 ];
+
+// Function to get translated interests
+export const getTranslatedInterests = (t: (key: string) => string): Interest[] => {
+  return baseInterests.map(interest => ({
+    ...interest,
+    name: t(`interests.${interest.id}`),
+  }));
+};
+
+// Export base interests for backwards compatibility
+export const interests: Interest[] = baseInterests.map(interest => ({
+  ...interest,
+  name: interest.id, // Fallback to ID if no translation function provided
+}));

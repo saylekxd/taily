@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { TrendingUp, Clock, Calendar, Book, Target, Award } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
+import { useI18n } from '@/hooks/useI18n';
 import { ReadingSessionStats } from '@/types';
 import { getReadingSessionStats, getTodayReadingSessions } from '@/services/readingSessionService';
 import { getUserStreakData } from '@/services/streakService';
@@ -11,6 +12,7 @@ type ReadingInsightsProps = {
 };
 
 export default function ReadingInsights({ userId }: ReadingInsightsProps) {
+  const { t } = useI18n();
   const [stats, setStats] = useState<ReadingSessionStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [todayGoalMet, setTodayGoalMet] = useState(false);
@@ -47,13 +49,13 @@ export default function ReadingInsights({ userId }: ReadingInsightsProps) {
   }, [userId]);
 
   const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
     
     if (hours > 0) {
-      return `${hours}h ${minutes}m`;
+      return `${hours} ${t('stats.hours')} ${minutes % 60} ${t('stats.minutes')}`;
     }
-    return `${minutes}m`;
+    return `${minutes} ${t('stats.minutes')}`;
   };
 
   const formatTimeGoal = (seconds: number, goal: number): string => {
@@ -65,7 +67,7 @@ export default function ReadingInsights({ userId }: ReadingInsightsProps) {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading insights...</Text>
+        <Text style={styles.loadingText}>{t('insights.loadingInsights')}</Text>
       </View>
     );
   }
@@ -73,8 +75,8 @@ export default function ReadingInsights({ userId }: ReadingInsightsProps) {
   if (!stats) {
     return (
       <View style={styles.container}>
-        <Text style={styles.emptyText}>No reading data available yet.</Text>
-        <Text style={styles.emptySubtext}>Start reading stories to see your insights!</Text>
+        <Text style={styles.emptyText}>{t('insights.noDataAvailable')}</Text>
+        <Text style={styles.emptySubtext}>{t('insights.startReadingToSeeInsights')}</Text>
       </View>
     );
   }
@@ -83,11 +85,11 @@ export default function ReadingInsights({ userId }: ReadingInsightsProps) {
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Today's Progress */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today's Reading</Text>
+        <Text style={styles.sectionTitle}>{t('insights.todayReading')}</Text>
         <View style={styles.goalCard}>
           <View style={styles.goalHeader}>
             <Target size={24} color={todayGoalMet ? colors.success : colors.primary} />
-            <Text style={styles.goalTitle}>Daily Goal</Text>
+            <Text style={styles.goalTitle}>{t('insights.dailyGoal')}</Text>
             {todayGoalMet && <Award size={20} color={colors.success} />}
           </View>
           <Text style={styles.goalProgress}>
@@ -102,47 +104,47 @@ export default function ReadingInsights({ userId }: ReadingInsightsProps) {
             />
           </View>
           {todayGoalMet && (
-            <Text style={styles.goalAchieved}>🎉 Goal achieved!</Text>
+            <Text style={styles.goalAchieved}>🎉 {t('insights.goalAchieved')}</Text>
           )}
         </View>
       </View>
 
       {/* Reading Statistics */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Reading Statistics</Text>
+        <Text style={styles.sectionTitle}>{t('insights.readingStatistics')}</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <Book size={28} color={colors.primary} />
             <Text style={styles.statValue}>{stats.totalSessions}</Text>
-            <Text style={styles.statLabel}>Total Sessions</Text>
+            <Text style={styles.statLabel}>{t('insights.totalSessions')}</Text>
           </View>
           
           <View style={styles.statCard}>
             <Clock size={28} color={colors.secondary} />
             <Text style={styles.statValue}>{formatTime(stats.totalReadingTime)}</Text>
-            <Text style={styles.statLabel}>Total Time</Text>
+            <Text style={styles.statLabel}>{t('insights.totalTime')}</Text>
           </View>
           
           <View style={styles.statCard}>
             <TrendingUp size={28} color={colors.accent} />
             <Text style={styles.statValue}>{formatTime(stats.averageSessionTime)}</Text>
-            <Text style={styles.statLabel}>Avg Session</Text>
+            <Text style={styles.statLabel}>{t('insights.avgSession')}</Text>
           </View>
           
           <View style={styles.statCard}>
             <Calendar size={28} color={colors.success} />
             <Text style={styles.statValue}>{streakData.currentStreak}</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
+            <Text style={styles.statLabel}>{t('insights.dayStreak')}</Text>
           </View>
         </View>
       </View>
 
       {/* Weekly Progress */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>This Week</Text>
+        <Text style={styles.sectionTitle}>{t('insights.thisWeek')}</Text>
         <View style={styles.weeklyCard}>
           <Text style={styles.weeklyTime}>{formatTime(stats.weeklyReadingTime)}</Text>
-          <Text style={styles.weeklyLabel}>Reading Time</Text>
+          <Text style={styles.weeklyLabel}>{t('insights.readingTime')}</Text>
           <Text style={styles.weeklySubtext}>
             {stats.completedSessions} stories completed this week
           </Text>
@@ -152,7 +154,7 @@ export default function ReadingInsights({ userId }: ReadingInsightsProps) {
       {/* Favorite Story */}
       {stats.mostReadStory && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Most Read Story</Text>
+          <Text style={styles.sectionTitle}>{t('insights.mostReadStory')}</Text>
           <View style={styles.favoriteStoryCard}>
             <Text style={styles.favoriteStoryTitle}>{stats.mostReadStory.story.title}</Text>
             <Text style={styles.favoriteStoryStats}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -12,7 +12,8 @@ import { useRouter } from 'expo-router';
 import { useUser } from '@/hooks/useUser';
 import StoryCard from '@/components/StoryCard';
 import { colors } from '@/constants/colors';
-import { getUserStories } from '@/services/storyService';
+import { useI18n } from '@/hooks/useI18n';
+import { getUserStories, getFavoriteStories } from '@/services/storyService';
 import { Story } from '@/types';
 
 type TabType = 'all' | 'unread' | 'favorites' | 'audio';
@@ -26,49 +27,71 @@ export default function BookshelfScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useUser();
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [stories, setStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  const loadStories = useCallback(async () => {
+  const tabs = [
+    { id: 'all' as TabType, label: t('bookshelf.myStories') },
+    { id: 'unread' as TabType, label: t('bookshelf.inProgress') },
+    { id: 'favorites' as TabType, label: t('bookshelf.favorites') },
+    { id: 'audio' as TabType, label: 'Audio' },
+  ];
+
+  useEffect(() => {
+    loadStories();
+  }, [user?.id, activeTab]);
+
+  const loadStories = async () => {
     if (!user?.id) return;
     
     setIsLoading(true);
-    const userStories = await getUserStories(user.id);
-    setStories(userStories);
-    setIsLoading(false);
-  }, [user?.id]);
-  
-  useEffect(() => {
-    loadStories();
-  }, [loadStories]);
-
-  const filteredStories = useCallback(() => {
-    switch (activeTab) {
-      case 'unread':
-        return stories.filter(story => !story.completed);
-      case 'favorites':
-        return stories.filter(story => story.is_favorite);
-      case 'audio':
-        return stories.filter(story => story.has_audio);
-      case 'all':
-      default:
-        return stories;
+    try {
+      let storiesData: Story[] = [];
+      
+      switch (activeTab) {
+        case 'favorites':
+          storiesData = await getFavoriteStories(user.id);
+          break;
+        case 'all':
+        default:
+          storiesData = await getUserStories(user.id);
+          break;
+      }
+      
+      setStories(storiesData);
+    } catch (error) {
+      console.error('Error loading stories:', error);
+    } finally {
+      setIsLoading(false);
     }
-  }, [activeTab, stories]);
+  };
 
-  const tabs: { id: TabType; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'unread', label: 'Unread' },
-    { id: 'favorites', label: 'Favorites' },
-    { id: 'audio', label: 'Audio' },
-  ];
+  const filteredStories = () => {
+    return stories; // Already filtered by the API call
+  };
+
+  const getEmptyMessage = () => {
+    switch (activeTab) {
+      case 'all':
+        return t('bookshelf.bookshelfEmpty');
+      case 'unread':
+        return t('bookshelf.allStoriesRead');
+      case 'favorites':
+        return t('bookshelf.noFavorites');
+      case 'audio':
+        return t('bookshelf.noAudioStories');
+      default:
+        return t('bookshelf.noStories');
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>My Bookshelf</Text>
+        <Text style={styles.title}>{t('bookshelf.myBookshelf')}</Text>
       </View>
       
       {/* Tabs */}
@@ -97,7 +120,7 @@ export default function BookshelfScreen() {
       {/* Stories Grid */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading your bookshelf...</Text>
+          <Text style={styles.loadingText}>{t('bookshelf.loadingBookshelf')}</Text>
         </View>
       ) : (
         <FlatList
@@ -126,14 +149,7 @@ export default function BookshelfScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                {activeTab === 'all' 
-                  ? "Your bookshelf is empty. Explore the catalog to find stories!"
-                  : activeTab === 'unread' 
-                    ? "You've read all your stories. Discover new ones in the catalog!"
-                    : activeTab === 'favorites' 
-                      ? "You haven't favorited any stories yet."
-                      : "No audio stories found in your bookshelf."
-                }
+                {getEmptyMessage()}
               </Text>
             </View>
           }

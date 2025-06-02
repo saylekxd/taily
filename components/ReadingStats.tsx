@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Book, Clock, Calendar } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
+import { useI18n } from '@/hooks/useI18n';
 import { supabase } from '@/lib/supabase';
 import { getReadingSessionStats } from '@/services/readingSessionService';
 import { getUserStreakData } from '@/services/streakService';
@@ -11,6 +12,7 @@ type ReadingStatsProps = {
 };
 
 export default function ReadingStats({ userId }: ReadingStatsProps) {
+  const { t } = useI18n();
   const [stats, setStats] = useState({
     totalStories: 0,
     readingTime: 0,  // in minutes
@@ -55,17 +57,17 @@ export default function ReadingStats({ userId }: ReadingStatsProps) {
 
   const formatReadingTime = (minutes: number) => {
     if (minutes < 60) {
-      return `${minutes} min`;
+      return `${minutes} ${t('stats.minutes')}`;
     }
     
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     
     if (remainingMinutes === 0) {
-      return `${hours} hr`;
+      return `${hours} ${t('stats.hours')}`;
     }
     
-    return `${hours} hr ${remainingMinutes} min`;
+    return `${hours} ${t('stats.hours')} ${remainingMinutes} ${t('stats.minutes')}`;
   };
 
   return (
@@ -73,19 +75,19 @@ export default function ReadingStats({ userId }: ReadingStatsProps) {
       <View style={styles.statCard}>
         <Book size={24} color={colors.primary} />
         <Text style={styles.statValue}>{stats.totalStories}</Text>
-        <Text style={styles.statLabel}>Stories Read</Text>
+        <Text style={styles.statLabel}>{t('stats.storiesRead')}</Text>
       </View>
       
       <View style={styles.statCard}>
         <Clock size={24} color={colors.secondary} />
         <Text style={styles.statValue}>{formatReadingTime(stats.readingTime)}</Text>
-        <Text style={styles.statLabel}>Reading Time</Text>
+        <Text style={styles.statLabel}>{t('stats.timeSpent')}</Text>
       </View>
       
       <View style={styles.statCard}>
         <Calendar size={24} color={colors.accent} />
         <Text style={styles.statValue}>{stats.streak}</Text>
-        <Text style={styles.statLabel}>Day Streak</Text>
+        <Text style={styles.statLabel}>{t('stats.currentStreak')}</Text>
       </View>
     </View>
   );

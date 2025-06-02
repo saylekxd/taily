@@ -4,70 +4,66 @@ import {
   Text, 
   StyleSheet, 
   ScrollView, 
-  TouchableOpacity 
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  FlatList
 } from 'react-native';
-import { router } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { useRouter } from 'expo-router';
+import { ChevronRight } from 'lucide-react-native';
 import StoryCard from '@/components/StoryCard';
-import StreakCounter from '@/components/StreakCounter';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
+import { useI18n } from '@/hooks/useI18n';
 import { getRecommendedStories, getInProgressStories } from '@/services/storyService';
 import { getDailyStory } from '@/services/dailyStoryService';
-import { getUserStreakData } from '@/services/streakService';
 import { Story } from '@/types';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { user, profile } = useUser();
+  const { t } = useI18n();
   const [recommendedStories, setRecommendedStories] = useState<Story[]>([]);
   const [inProgressStories, setInProgressStories] = useState<Story[]>([]);
   const [dailyStory, setDailyStory] = useState<Story | null>(null);
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [loading, setLoading] = useState(true);
-
-  const childName = profile?.child_name || 'Little Explorer';
-  
-  const greeting = (() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  })();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function loadStories() {
-      if (!user?.id) return;
-      
-      setLoading(true);
-      try {
-        const [recommendedData, inProgressData, dailyStoryData, streakData] = await Promise.all([
-          getRecommendedStories(profile),
-          getInProgressStories(user.id),
-          getDailyStory(),
-          getUserStreakData(user.id)
-        ]);
-        
-        setRecommendedStories(recommendedData);
-        setInProgressStories(inProgressData);
-        setDailyStory(dailyStoryData);
-        setCurrentStreak(streakData.currentStreak);
-      } catch (error) {
-        console.error('Error loading stories:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadStories();
-  }, [profile, user?.id]);
+  }, [user, profile]);
 
-  if (loading) {
+  const loadStories = async () => {
+    if (!user?.id) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Get recommended stories
+      const recommended = await getRecommendedStories(profile);
+      setRecommendedStories(recommended);
+      
+      // Get user's stories with progress
+      const inProgress = await getInProgressStories(user.id);
+      setInProgressStories(inProgress);
+      
+      // Get daily story from the daily story service
+      const daily = await getDailyStory();
+      setDailyStory(daily);
+    } catch (error) {
+      console.error('Error loading stories:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={styles.loadingText}>Loading your stories...</Text>
+      <View style={[styles.container, styles.centerContent, { paddingTop: insets.top }]}>
+        <Text style={styles.loadingText}>{t('home.loadingStories')}</Text>
       </View>
     );
   }
@@ -80,42 +76,43 @@ export default function HomeScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>{greeting},</Text>
-          <Text style={styles.name}>{childName}!</Text>
-        </View>
-        <StreakCounter streak={currentStreak} />
+        <Text style={styles.greeting}>
+          {t('home.welcomeBack', { name: profile?.child_name || t('profile.explorer') })}
+        </Text>
       </View>
-      
+
       {/* Daily Story */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Your Daily Story</Text>
-        <View style={styles.dailyStoryContainer}>
-          {dailyStory ? (
-            <StoryCard 
-              story={dailyStory} 
-              size="large"
-              onPress={() => router.push(`/story/${dailyStory.id}`)}
-            />
-          ) : (
-            <View style={styles.noDailyStoryContainer}>
-              <Text style={styles.noDailyStoryText}>No daily story available today</Text>
-              <Text style={styles.noDailyStorySubtext}>Check back tomorrow for a new story!</Text>
-            </View>
-          )}
+      {dailyStory && (
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>{t('home.yourDailyStory')}</Text>
+          <StoryCard 
+            story={dailyStory} 
+            size="large" 
+            onPress={() => router.push(`/story/${dailyStory.id}`)}
+          />
         </View>
-      </View>
-      
+      )}
+
+      {!dailyStory && (
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>{t('home.yourDailyStory')}</Text>
+          <View style={styles.noDailyStoryContainer}>
+            <Text style={styles.noDailyStoryText}>{t('home.noDailyStory')}</Text>
+            <Text style={styles.noDailyStorySubtext}>{t('home.noDailyStorySubtext')}</Text>
+          </View>
+        </View>
+      )}
+
       {/* Continue Reading */}
       {inProgressStories.length > 0 && (
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Continue Reading</Text>
+            <Text style={styles.sectionTitle}>{t('home.continueReading')}</Text>
             <TouchableOpacity 
               style={styles.seeAllButton}
               onPress={() => router.push('/bookshelf')}
             >
-              <Text style={styles.seeAllText}>See All</Text>
+              <Text style={styles.seeAllText}>{t('common.seeAll')}</Text>
               <ChevronRight size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
@@ -141,12 +138,12 @@ export default function HomeScreen() {
       {recommendedStories.length > 0 && (
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recommended for You</Text>
+            <Text style={styles.sectionTitle}>{t('home.recommendedForYou')}</Text>
             <TouchableOpacity 
               style={styles.seeAllButton}
               onPress={() => router.push('/catalog')}
             >
-              <Text style={styles.seeAllText}>See All</Text>
+              <Text style={styles.seeAllText}>{t('common.seeAll')}</Text>
               <ChevronRight size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
@@ -176,6 +173,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   contentContainer: {
     paddingHorizontal: 16,
     paddingBottom: 32,
@@ -187,85 +188,56 @@ const styles = StyleSheet.create({
     marginVertical: 24,
   },
   greeting: {
-    fontFamily: 'Nunito-Bold',
-    fontSize: 18,
-    color: colors.textSecondary,
-  },
-  name: {
     fontFamily: 'Nunito-ExtraBold',
-    fontSize: 32,
+    fontSize: 28,
     color: colors.white,
-    marginTop: 4,
-    letterSpacing: -0.5,
+    lineHeight: 34,
   },
   loadingText: {
     fontFamily: 'Nunito-Regular',
     fontSize: 16,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 100,
   },
   sectionContainer: {
-    marginBottom: 28,
+    marginBottom: 32,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 18,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontFamily: 'Nunito-Bold',
-    fontSize: 22,
+    fontSize: 20,
     color: colors.white,
-    letterSpacing: -0.3,
-  },
-  dailyStoryContainer: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 8,
   },
   noDailyStoryContainer: {
     backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 28,
+    borderRadius: 16,
+    padding: 24,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    marginTop: 8,
   },
   noDailyStoryText: {
     fontFamily: 'Nunito-Bold',
     fontSize: 16,
-    color: colors.textSecondary,
+    color: colors.white,
     textAlign: 'center',
+    marginBottom: 8,
   },
   noDailyStorySubtext: {
     fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
-    opacity: 0.7,
-    lineHeight: 20,
   },
   horizontalList: {
-    paddingRight: 16,
+    paddingHorizontal: 4,
   },
   horizontalCard: {
     width: 180,
+    height: 240,
   },
   seeAllButton: {
     flexDirection: 'row',

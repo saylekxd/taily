@@ -2,10 +2,12 @@ import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { Chrome as Home, Book, BookOpen, User } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
+import { useI18n } from '@/hooks/useI18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   
   return (
     <Tabs
@@ -29,7 +31,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t('home.title'),
           tabBarIcon: ({ color, size }) => (
             <Home size={size} color={color} />
           ),
@@ -38,7 +40,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="catalog"
         options={{
-          title: 'Catalog',
+          title: t('catalog.title'),
           tabBarIcon: ({ color, size }) => (
             <Book size={size} color={color} />
           ),
@@ -47,7 +49,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="bookshelf"
         options={{
-          title: 'Bookshelf',
+          title: t('bookshelf.title'),
           tabBarIcon: ({ color, size }) => (
             <BookOpen size={size} color={color} />
           ),
@@ -56,7 +58,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('profile.title'),
           tabBarIcon: ({ color, size }) => (
             <User size={size} color={color} />
           ),
