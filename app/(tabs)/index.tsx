@@ -1,55 +1,72 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   ScrollView, 
-  TouchableOpacity, 
-  Image 
+  TouchableOpacity 
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { router } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
-import StreakCounter from '@/components/StreakCounter';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import StoryCard from '@/components/StoryCard';
+import StreakCounter from '@/components/StreakCounter';
 import { colors } from '@/constants/colors';
-import { getGreeting } from '@/utils/helpers';
 import { useUser } from '@/hooks/useUser';
 import { getRecommendedStories, getInProgressStories } from '@/services/storyService';
+import { getDailyStory } from '@/services/dailyStoryService';
 import { Story } from '@/types';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { user, profile, loading } = useUser();
+  const { user, profile } = useUser();
   const [recommendedStories, setRecommendedStories] = useState<Story[]>([]);
   const [inProgressStories, setInProgressStories] = useState<Story[]>([]);
+  const [dailyStory, setDailyStory] = useState<Story | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const childName = profile?.child_name || 'Little Explorer';
   
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  })();
+
   useEffect(() => {
-    if (profile) {
-      // Fetch personalized stories based on user profile
-      const fetchStories = async () => {
-        const recommended = await getRecommendedStories(profile);
-        const inProgress = await getInProgressStories(user?.id);
-        
-        setRecommendedStories(recommended);
-        setInProgressStories(inProgress);
-      };
+    async function loadStories() {
+      setLoading(true);
       
-      fetchStories();
+      try {
+        // Load daily story, recommended stories and in-progress stories in parallel
+        const [dailyStoryData, recommendedData, inProgressData] = await Promise.all([
+          getDailyStory(),
+          getRecommendedStories(profile),
+          user?.id ? getInProgressStories(user.id) : Promise.resolve([])
+        ]);
+
+        setDailyStory(dailyStoryData);
+        setRecommendedStories(recommendedData);
+        setInProgressStories(inProgressData);
+      } catch (error) {
+        console.error('Error loading stories:', error);
+      } finally {
+        setLoading(false);
+      }
     }
+
+    loadStories();
   }, [profile, user?.id]);
 
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={styles.loadingText}>Loading your magical stories...</Text>
+        <Text style={styles.loadingText}>Loading your stories...</Text>
       </View>
     );
   }
-
-  const greeting = getGreeting();
-  const childName = profile?.child_name || 'Explorer';
 
   return (
     <ScrollView 
@@ -70,12 +87,17 @@ export default function HomeScreen() {
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Your Daily Story</Text>
         <View style={styles.dailyStoryContainer}>
-          {recommendedStories.length > 0 && (
+          {dailyStory ? (
             <StoryCard 
-              story={recommendedStories[0]} 
+              story={dailyStory} 
               size="large"
-              onPress={() => router.push(`/story/${recommendedStories[0].id}`)}
+              onPress={() => router.push(`/story/${dailyStory.id}`)}
             />
+          ) : (
+            <View style={styles.noDailyStoryContainer}>
+              <Text style={styles.noDailyStoryText}>No daily story available today</Text>
+              <Text style={styles.noDailyStorySubtext}>Check back tomorrow for a new story!</Text>
+            </View>
           )}
         </View>
       </View>
@@ -111,32 +133,34 @@ export default function HomeScreen() {
       )}
       
       {/* Recommended Stories */}
-      <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recommended For You</Text>
-          <TouchableOpacity 
-            style={styles.seeAllButton}
-            onPress={() => router.push('/catalog')}
+      {recommendedStories.length > 0 && (
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recommended for You</Text>
+            <TouchableOpacity 
+              style={styles.seeAllButton}
+              onPress={() => router.push('/catalog')}
+            >
+              <Text style={styles.seeAllText}>See All</Text>
+              <ChevronRight size={16} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
           >
-            <Text style={styles.seeAllText}>See All</Text>
-            <ChevronRight size={16} color={colors.primary} />
-          </TouchableOpacity>
+            {recommendedStories.slice(0, 5).map(story => (
+              <StoryCard 
+                key={story.id} 
+                story={story} 
+                size="medium"
+                onPress={() => router.push(`/story/${story.id}`)}
+              />
+            ))}
+          </ScrollView>
         </View>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        >
-          {recommendedStories.map(story => (
-            <StoryCard 
-              key={story.id} 
-              story={story} 
-              size="medium"
-              onPress={() => router.push(`/story/${story.id}`)}
-            />
-          ))}
-        </ScrollView>
-      </View>
+      )}
     </ScrollView>
   );
 }
@@ -172,6 +196,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
+    marginTop: 100,
   },
   sectionContainer: {
     marginBottom: 24,
@@ -191,6 +216,26 @@ const styles = StyleSheet.create({
   dailyStoryContainer: {
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  noDailyStoryContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  noDailyStoryText: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  noDailyStorySubtext: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+    opacity: 0.7,
   },
   horizontalList: {
     paddingRight: 16,
