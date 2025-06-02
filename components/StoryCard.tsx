@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import type { DimensionValue } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { Story } from '@/types';
@@ -15,7 +16,7 @@ export default function StoryCard({
   size = 'medium',
   onPress 
 }: StoryCardProps) {
-  const cardDimensions = {
+  const cardDimensions: Record<string, { width: DimensionValue; height: number }> = {
     small: { width: 120, height: 160 },
     medium: { width: 160, height: 220 },
     large: { width: '100%', height: 220 },
