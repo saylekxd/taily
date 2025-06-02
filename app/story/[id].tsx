@@ -21,7 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ProgressBar from '@/components/ProgressBar';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
-import { getStoryById, updateStoryProgress, getUserCompletedStoryCount } from '@/services/storyService';
+import { getStoryByIdWithUserData, createOrUpdateUserStory, getUserCompletedStoryCount } from '@/services/storyService';
 import { startReadingSession, endReadingSession } from '@/services/readingSessionService';
 import { Story } from '@/types';
 import { checkAndGrantAchievement } from '@/services/achievementService';
@@ -38,9 +38,14 @@ export default function StoryScreen() {
   const [readingTime, setReadingTime] = useState(0);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [scrollViewHeight, setScrollViewHeight] = useState(0);
+  const [shouldScrollToProgress, setShouldScrollToProgress] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const readingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const lastSaveTimeRef = useRef<number | null>(null);
   
   // Load story data and start reading session
   useEffect(() => {
@@ -48,11 +53,29 @@ export default function StoryScreen() {
       if (!id || !user?.id) return;
       
       setLoading(true);
-      const storyData = await getStoryById(id);
+      
+      // Use the new function to get story with user data
+      const storyData = await getStoryByIdWithUserData(id, user.id);
       if (storyData) {
         setStory(storyData);
-        setProgress(storyData.progress || 0);
+        const savedProgress = storyData.progress || 0;
+        setProgress(savedProgress);
         setIsFavorite(storyData.is_favorite || false);
+        setIsCompleted(storyData.completed || false);
+        
+        // If there's saved progress > 5%, we should scroll to it
+        if (savedProgress > 0.05) {
+          setShouldScrollToProgress(true);
+        }
+        
+        // Create or update user_story record to track that user opened this story
+        await createOrUpdateUserStory({
+          user_id: user.id,
+          story_id: id,
+          progress: savedProgress,
+          is_favorite: storyData.is_favorite || false,
+          completed: storyData.completed || false,
+        });
         
         // Start a new reading session
         const sessionId = await startReadingSession(user.id, id);
@@ -64,9 +87,10 @@ export default function StoryScreen() {
     loadStoryAndStartSession();
   }, [id, user?.id]);
 
-  // Handle reading time tracking
+  // Handle reading time tracking and auto-save
   useEffect(() => {
     startTimeRef.current = Date.now();
+    lastSaveTimeRef.current = Date.now();
     
     readingTimerRef.current = setInterval(() => {
       if (startTimeRef.current) {
@@ -75,15 +99,56 @@ export default function StoryScreen() {
       }
     }, 1000);
     
+    // Auto-save every 10 seconds
+    autoSaveTimerRef.current = setInterval(async () => {
+      if (!user?.id || !story?.id) return;
+      
+      const currentTime = Date.now();
+      const timeSinceLastSave = Math.floor((currentTime - (lastSaveTimeRef.current || currentTime)) / 1000);
+      
+      try {
+        await createOrUpdateUserStory({
+          user_id: user.id,
+          story_id: story.id,
+          progress: progressRef.current,
+          is_favorite: isFavoriteRef.current,
+          reading_time: Math.max(timeSinceLastSave, 10), // At least 10 seconds
+          completed: isCompletedRef.current,
+        });
+        
+        lastSaveTimeRef.current = currentTime;
+        console.log('Auto-saved progress:', { 
+          progress: progressRef.current.toFixed(2), 
+          is_favorite: isFavoriteRef.current, 
+          reading_time: timeSinceLastSave,
+          completed: isCompletedRef.current 
+        });
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    }, 10000);
+    
     return () => {
       if (readingTimerRef.current) {
         clearInterval(readingTimerRef.current);
+      }
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
       }
       
       // End reading session when leaving the screen
       endCurrentSession();
     };
-  }, []);
+  }, [user?.id, story?.id]); // Only depend on user and story IDs
+
+  // Update progress, favorite, and completion status refs for auto-save
+  const progressRef = useRef(progress);
+  const isFavoriteRef = useRef(isFavorite);
+  const isCompletedRef = useRef(isCompleted);
+  
+  useEffect(() => { progressRef.current = progress; }, [progress]);
+  useEffect(() => { isFavoriteRef.current = isFavorite; }, [isFavorite]);
+  useEffect(() => { isCompletedRef.current = isCompleted; }, [isCompleted]);
 
   // Stop speech when component unmounts
   useEffect(() => {
@@ -103,23 +168,56 @@ export default function StoryScreen() {
     }
   }, [progress, isCompleted]);
 
+  // Auto-scroll to saved progress when content is ready
+  useEffect(() => {
+    if (shouldScrollToProgress && contentHeight > 0 && scrollViewHeight > 0 && progress > 0) {
+      const scrollPosition = progress * (contentHeight - scrollViewHeight);
+      
+      console.log('Auto-scroll conditions met:', {
+        shouldScrollToProgress,
+        contentHeight,
+        scrollViewHeight,
+        progress: progress.toFixed(2),
+        calculatedScrollPosition: scrollPosition.toFixed(0)
+      });
+      
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, scrollPosition),
+          animated: true,
+        });
+        setShouldScrollToProgress(false);
+        console.log('✅ Auto-scrolled to saved progress:', { 
+          progress: `${(progress * 100).toFixed(1)}%`, 
+          scrollPosition: scrollPosition.toFixed(0) 
+        });
+      }, 1000); // Increased delay to ensure content is fully rendered
+    }
+  }, [shouldScrollToProgress, contentHeight, scrollViewHeight, progress]);
+
   const endCurrentSession = async (completed: boolean = false) => {
     if (!currentSessionId || !user?.id || !story?.id) return;
     
-    const finalCompleted = completed || isCompleted;
+    const finalCompleted = completed || isCompletedRef.current;
+    const currentReadingTime = readingTime;
     
     // End the reading session
-    await endReadingSession(currentSessionId, readingTime, finalCompleted);
+    await endReadingSession(currentSessionId, currentReadingTime, finalCompleted);
     
-    // Update story progress
-    await updateStoryProgress({
+    // Update user_stories with final data
+    await createOrUpdateUserStory({
       user_id: user.id,
       story_id: story.id,
-      progress,
-      is_favorite: isFavorite,
-      reading_time: readingTime,
+      progress: progressRef.current,
+      is_favorite: isFavoriteRef.current,
+      reading_time: currentReadingTime,
       completed: finalCompleted,
-      sessionId: currentSessionId,
+    });
+    
+    console.log('Session ended:', { 
+      progress: progressRef.current.toFixed(2), 
+      reading_time: currentReadingTime, 
+      completed: finalCompleted 
     });
     
     // Check for achievements if completed
@@ -138,6 +236,10 @@ export default function StoryScreen() {
     const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
     const contentHeight = event.nativeEvent.contentSize.height;
     
+    // Update dimensions for auto-scroll calculation
+    setScrollViewHeight(scrollViewHeight);
+    setContentHeight(contentHeight);
+    
     // Calculate progress as percentage scrolled
     const currentProgress = Math.min(
       scrollPosition / (contentHeight - scrollViewHeight),
@@ -147,8 +249,33 @@ export default function StoryScreen() {
     setProgress(currentProgress);
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
+  const handleContentSizeChange = (contentWidth: number, contentHeight: number) => {
+    setContentHeight(contentHeight);
+    console.log('Content size changed:', { contentWidth, contentHeight });
+  };
+
+  const handleScrollViewLayout = (event: any) => {
+    const { height } = event.nativeEvent.layout;
+    setScrollViewHeight(height);
+    console.log('ScrollView layout changed:', { height });
+  };
+
+  const toggleFavorite = async () => {
+    const newFavoriteState = !isFavorite;
+    setIsFavorite(newFavoriteState);
+    
+    // Immediately update user_stories table
+    if (user?.id && story?.id) {
+      await createOrUpdateUserStory({
+        user_id: user.id,
+        story_id: story.id,
+        is_favorite: newFavoriteState,
+      });
+      
+      // Reset the last save time to avoid double-counting reading time
+      lastSaveTimeRef.current = Date.now();
+      console.log('Manual save: favorite toggled to', newFavoriteState);
+    }
   };
 
   const toggleReadAloud = () => {
@@ -214,6 +341,8 @@ export default function StoryScreen() {
         ref={scrollViewRef}
         style={styles.contentContainer}
         onScroll={handleScroll}
+        onContentSizeChange={handleContentSizeChange}
+        onLayout={handleScrollViewLayout}
         scrollEventThrottle={16}
       >
         <Text style={styles.storyContent}>{story.content}</Text>

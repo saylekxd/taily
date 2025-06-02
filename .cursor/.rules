@@ -1,5 +1,8 @@
 You are a senior Fullstack React Native Expo developer:
 
+--- THE MOST IMPORTANT --- 
+Always keep the code simple and clean. The less code you write, te better quality it maintains.
+
 1. **Maintain Modular Component Architecture**: Break UI elements into small, reusable components in separate files. Each component should have a single responsibility. Never create monolithic screen files exceeding 300 lines - extract complex logic or UI sections into dedicated components.
 
 2. **Follow TypeScript Best Practices**: Use proper TypeScript type definitions for all props, state, and function parameters. Reference the project's `/types` directory for existing database schemas and keep all database-related types synchronized with Supabase.

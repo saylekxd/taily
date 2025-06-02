@@ -106,6 +106,63 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
 }
 
 /**
+ * Get a specific story by ID with user-specific data
+ */
+export async function getStoryByIdWithUserData(storyId: string, userId?: string): Promise<Story | null> {
+  try {
+    if (!userId) {
+      // If no user ID, just get the basic story data
+      return getStoryById(storyId);
+    }
+
+    // First, get the story data with user_stories relationship
+    const { data: userStory, error: userStoryError } = await supabase
+      .from('user_stories')
+      .select(`
+        *,
+        stories (*)
+      `)
+      .eq('user_id', userId)
+      .eq('story_id', storyId)
+      .single();
+
+    if (userStoryError && userStoryError.code !== 'PGRST116') {
+      // PGRST116 is "not found" error, which means user hasn't read this story yet
+      console.error('Error fetching user story:', userStoryError);
+    }
+
+    // Get the basic story data
+    const { data: story, error: storyError } = await supabase
+      .from('stories')
+      .select('*')
+      .eq('id', storyId)
+      .single();
+
+    if (storyError) {
+      console.error('Error fetching story:', storyError);
+      return null;
+    }
+
+    if (!story) return null;
+
+    // Merge story data with user-specific data
+    const storyWithUserData = transformDbStoryToStory(story);
+    
+    if (userStory) {
+      storyWithUserData.progress = userStory.progress || 0;
+      storyWithUserData.is_favorite = userStory.is_favorite || false;
+      storyWithUserData.completed = userStory.completed || false;
+    }
+
+    return storyWithUserData;
+
+  } catch (error) {
+    console.error('Error in getStoryByIdWithUserData:', error);
+    return null;
+  }
+}
+
+/**
  * Get all stories with pagination
  */
 export async function getAllStories(page: number = 0, limit: number = 20): Promise<Story[]> {
@@ -254,100 +311,6 @@ export async function getStoriesByCategory(category: string): Promise<Story[]> {
 }
 
 /**
- * Update a user's story progress
- */
-export async function updateStoryProgress(params: {
-  user_id: string;
-  story_id: string;
-  progress: number;
-  is_favorite: boolean;
-  reading_time: number;
-  completed: boolean;
-  sessionId?: string; // Optional session ID to track the session
-}): Promise<void> {
-  try {
-    // First, try to update existing user_story record
-    const { data: existingUserStory, error: fetchError } = await supabase
-      .from('user_stories')
-      .select('*')
-      .eq('user_id', params.user_id)
-      .eq('story_id', params.story_id)
-      .single();
-
-    if (fetchError && fetchError.code !== 'PGRST116') {
-      // PGRST116 is "not found" error, which is ok
-      console.error('Error fetching user story:', fetchError);
-      return;
-    }
-
-    const updateData = {
-      user_id: params.user_id,
-      story_id: params.story_id,
-      progress: params.progress,
-      is_favorite: params.is_favorite,
-      completed: params.completed,
-      reading_time: params.reading_time,
-      last_read_at: new Date().toISOString(),
-    };
-
-    if (existingUserStory) {
-      // Update existing record
-      const { error: updateError } = await supabase
-        .from('user_stories')
-        .update({
-          progress: params.progress,
-          is_favorite: params.is_favorite,
-          completed: params.completed,
-          reading_time: (existingUserStory.reading_time || 0) + params.reading_time,
-          last_read_at: new Date().toISOString(),
-        })
-        .eq('user_id', params.user_id)
-        .eq('story_id', params.story_id);
-
-      if (updateError) {
-        console.error('Error updating user story:', updateError);
-        return;
-      }
-    } else {
-      // Insert new record
-      const { error: insertError } = await supabase
-        .from('user_stories')
-        .insert(updateData);
-
-      if (insertError) {
-        console.error('Error inserting user story:', insertError);
-        return;
-      }
-    }
-
-    // If story is completed, update user's total_stories_read and reading time
-    if (params.completed) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('total_stories_read, total_reading_time')
-        .eq('id', params.user_id)
-        .single();
-
-      if (profile) {
-        const wasAlreadyCompleted = existingUserStory?.completed || false;
-        const storyCountIncrement = wasAlreadyCompleted ? 0 : 1;
-
-        await supabase
-          .from('profiles')
-          .update({
-            total_stories_read: (profile.total_stories_read || 0) + storyCountIncrement,
-            total_reading_time: (profile.total_reading_time || 0) + params.reading_time,
-          })
-          .eq('id', params.user_id);
-      }
-    }
-
-  } catch (error) {
-    console.error('Error in updateStoryProgress:', error);
-  }
-}
-
-/**
  * Get user's completed story count
  */
 export async function getUserCompletedStoryCount(userId: string): Promise<number> {
@@ -367,6 +330,106 @@ export async function getUserCompletedStoryCount(userId: string): Promise<number
   } catch (error) {
     console.error('Error in getUserCompletedStoryCount:', error);
     return 0;
+  }
+}
+
+/**
+ * Create or update user story data
+ */
+export async function createOrUpdateUserStory(params: {
+  user_id: string;
+  story_id: string;
+  progress?: number;
+  is_favorite?: boolean;
+  reading_time?: number;
+  completed?: boolean;
+}): Promise<void> {
+  try {
+    // Check if user_story record exists
+    const { data: existingUserStory, error: fetchError } = await supabase
+      .from('user_stories')
+      .select('*')
+      .eq('user_id', params.user_id)
+      .eq('story_id', params.story_id)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      console.error('Error fetching user story:', fetchError);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const wasAlreadyCompleted = existingUserStory?.completed || false;
+
+    if (existingUserStory) {
+      // Update existing record
+      const updateData: any = {
+        last_read_at: now,
+        updated_at: now,
+      };
+
+      if (params.progress !== undefined) updateData.progress = params.progress;
+      if (params.is_favorite !== undefined) updateData.is_favorite = params.is_favorite;
+      if (params.completed !== undefined) updateData.completed = params.completed;
+      if (params.reading_time !== undefined) {
+        updateData.reading_time = (existingUserStory.reading_time || 0) + params.reading_time;
+      }
+
+      const { error: updateError } = await supabase
+        .from('user_stories')
+        .update(updateData)
+        .eq('user_id', params.user_id)
+        .eq('story_id', params.story_id);
+
+      if (updateError) {
+        console.error('Error updating user story:', updateError);
+        return;
+      }
+    } else {
+      // Create new record
+      const insertData = {
+        user_id: params.user_id,
+        story_id: params.story_id,
+        progress: params.progress || 0,
+        is_favorite: params.is_favorite || false,
+        completed: params.completed || false,
+        reading_time: params.reading_time || 0,
+        last_read_at: now,
+        created_at: now,
+        updated_at: now,
+      };
+
+      const { error: insertError } = await supabase
+        .from('user_stories')
+        .insert(insertData);
+
+      if (insertError) {
+        console.error('Error inserting user story:', insertError);
+        return;
+      }
+    }
+
+    // If story is completed for the first time, update user's profile stats
+    if (params.completed && !wasAlreadyCompleted) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('total_stories_read, total_reading_time')
+        .eq('id', params.user_id)
+        .single();
+
+      if (profile) {
+        await supabase
+          .from('profiles')
+          .update({
+            total_stories_read: (profile.total_stories_read || 0) + 1,
+            total_reading_time: (profile.total_reading_time || 0) + (params.reading_time || 0),
+          })
+          .eq('id', params.user_id);
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in createOrUpdateUserStory:', error);
   }
 }
 
