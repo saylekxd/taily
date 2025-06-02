@@ -63,6 +63,12 @@ export interface ReadingSessionStats {
   };
 }
 
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  hasReadToday: boolean;
+}
+
 // Achievement types
 export interface Achievement {
   id: string;

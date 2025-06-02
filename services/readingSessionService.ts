@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { ReadingSession, ReadingSessionStats, Story } from '@/types';
+import { updateUserStreak, checkStreakAchievements, getUserStreakData } from '@/services/streakService';
 
 /**
  * Start a new reading session
@@ -71,17 +72,33 @@ export async function endReadingSession(
   completed: boolean = false
 ): Promise<void> {
   try {
-    const { error } = await supabase
+    const updateData: any = {
+      duration,
+      completed,
+      ended_at: new Date().toISOString(),
+    };
+
+    const { data: session, error } = await supabase
       .from('reading_sessions')
-      .update({
-        duration,
-        completed,
-        ended_at: new Date().toISOString(),
-      })
-      .eq('id', sessionId);
+      .update(updateData)
+      .eq('id', sessionId)
+      .select('user_id')
+      .single();
 
     if (error) {
       console.error('Error ending reading session:', error);
+      return;
+    }
+
+    // If session is completed, update the user's streak
+    if (completed && session?.user_id) {
+      try {
+        const streakData = await updateUserStreak(session.user_id);
+        await checkStreakAchievements(session.user_id, streakData.currentStreak);
+        console.log('Streak updated:', streakData);
+      } catch (streakError) {
+        console.error('Error updating streak after completing session:', streakError);
+      }
     }
   } catch (error) {
     console.error('Error in endReadingSession:', error);
@@ -296,25 +313,8 @@ export async function getTodayReadingSessions(userId: string): Promise<ReadingSe
  */
 export async function hasReadToday(userId: string): Promise<boolean> {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const { data, error, count } = await supabase
-      .from('reading_sessions')
-      .select('id', { count: 'exact' })
-      .eq('user_id', userId)
-      .eq('completed', true)
-      .gte('started_at', today.toISOString())
-      .lt('started_at', tomorrow.toISOString());
-
-    if (error) {
-      console.error('Error checking today reading:', error);
-      return false;
-    }
-
-    return (count || 0) > 0;
+    const streakData = await getUserStreakData(userId);
+    return streakData.hasReadToday;
   } catch (error) {
     console.error('Error in hasReadToday:', error);
     return false;
@@ -326,70 +326,11 @@ export async function hasReadToday(userId: string): Promise<boolean> {
  */
 export async function getReadingStreak(userId: string): Promise<{ currentStreak: number; longestStreak: number }> {
   try {
-    // Get all completed sessions grouped by date
-    const { data, error } = await supabase
-      .from('reading_sessions')
-      .select('started_at')
-      .eq('user_id', userId)
-      .eq('completed', true)
-      .order('started_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching reading streak:', error);
-      return { currentStreak: 0, longestStreak: 0 };
-    }
-
-    if (!data || data.length === 0) {
-      return { currentStreak: 0, longestStreak: 0 };
-    }
-
-    // Group sessions by date
-    const dateSet = new Set<string>();
-    data.forEach(session => {
-      const date = new Date(session.started_at);
-      date.setHours(0, 0, 0, 0);
-      dateSet.add(date.toISOString().split('T')[0]);
-    });
-
-    const uniqueDates = Array.from(dateSet).sort().reverse();
-    
-    // Calculate current streak
-    let currentStreak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    for (let i = 0; i < uniqueDates.length; i++) {
-      const sessionDate = new Date(uniqueDates[i]);
-      const expectedDate = new Date(today);
-      expectedDate.setDate(expectedDate.getDate() - i);
-      
-      if (sessionDate.getTime() === expectedDate.getTime()) {
-        currentStreak++;
-      } else {
-        break;
-      }
-    }
-
-    // Calculate longest streak
-    let longestStreak = 0;
-    let tempStreak = 0;
-    
-    for (let i = 0; i < uniqueDates.length - 1; i++) {
-      const currentDate = new Date(uniqueDates[i]);
-      const nextDate = new Date(uniqueDates[i + 1]);
-      const dayDiff = (currentDate.getTime() - nextDate.getTime()) / (1000 * 60 * 60 * 24);
-      
-      if (dayDiff === 1) {
-        tempStreak++;
-      } else {
-        longestStreak = Math.max(longestStreak, tempStreak + 1);
-        tempStreak = 0;
-      }
-    }
-    
-    longestStreak = Math.max(longestStreak, tempStreak + 1);
-
-    return { currentStreak, longestStreak };
+    const streakData = await getUserStreakData(userId);
+    return { 
+      currentStreak: streakData.currentStreak, 
+      longestStreak: streakData.longestStreak 
+    };
   } catch (error) {
     console.error('Error in getReadingStreak:', error);
     return { currentStreak: 0, longestStreak: 0 };

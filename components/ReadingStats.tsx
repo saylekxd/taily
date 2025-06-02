@@ -3,7 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Book, Clock, Calendar } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { supabase } from '@/lib/supabase';
-import { getReadingSessionStats, getReadingStreak } from '@/services/readingSessionService';
+import { getReadingSessionStats } from '@/services/readingSessionService';
+import { getUserStreakData } from '@/services/streakService';
 
 type ReadingStatsProps = {
   userId?: string;
@@ -28,33 +29,24 @@ export default function ReadingStats({ userId }: ReadingStatsProps) {
           .eq('id', userId)
           .single();
         
-        // Get reading session stats for more accurate time tracking
+        // Get reading session stats and streak data
         const [sessionStats, streakData] = await Promise.all([
           getReadingSessionStats(userId),
-          getReadingStreak(userId)
+          getUserStreakData(userId)
         ]);
         
         setStats({
           totalStories: profile?.total_stories_read || 0,
           readingTime: Math.floor((sessionStats.totalReadingTime || 0) / 60), // Convert to minutes
-          streak: streakData.currentStreak || 0,
+          streak: streakData.currentStreak,
         });
       } catch (error) {
         console.error('Error loading reading stats:', error);
-        // Fallback to profile data only
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('streak, total_stories_read, total_reading_time')
-          .eq('id', userId)
-          .single();
-        
-        if (profile) {
-          setStats({
-            totalStories: profile.total_stories_read || 0,
-            readingTime: Math.floor((profile.total_reading_time || 0) / 60),
-            streak: profile.streak || 0,
-          });
-        }
+        setStats({
+          totalStories: 0,
+          readingTime: 0,
+          streak: 0,
+        });
       }
     }
     

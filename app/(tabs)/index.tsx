@@ -16,6 +16,7 @@ import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { getRecommendedStories, getInProgressStories } from '@/services/storyService';
 import { getDailyStory } from '@/services/dailyStoryService';
+import { getUserStreakData } from '@/services/streakService';
 import { Story } from '@/types';
 
 export default function HomeScreen() {
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   const [recommendedStories, setRecommendedStories] = useState<Story[]>([]);
   const [inProgressStories, setInProgressStories] = useState<Story[]>([]);
   const [dailyStory, setDailyStory] = useState<Story | null>(null);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const childName = profile?.child_name || 'Little Explorer';
@@ -37,19 +39,21 @@ export default function HomeScreen() {
 
   useEffect(() => {
     async function loadStories() {
-      setLoading(true);
+      if (!user?.id) return;
       
+      setLoading(true);
       try {
-        // Load daily story, recommended stories and in-progress stories in parallel
-        const [dailyStoryData, recommendedData, inProgressData] = await Promise.all([
-          getDailyStory(),
+        const [recommendedData, inProgressData, dailyStoryData, streakData] = await Promise.all([
           getRecommendedStories(profile),
-          user?.id ? getInProgressStories(user.id) : Promise.resolve([])
+          getInProgressStories(user.id),
+          getDailyStory(),
+          getUserStreakData(user.id)
         ]);
-
-        setDailyStory(dailyStoryData);
+        
         setRecommendedStories(recommendedData);
         setInProgressStories(inProgressData);
+        setDailyStory(dailyStoryData);
+        setCurrentStreak(streakData.currentStreak);
       } catch (error) {
         console.error('Error loading stories:', error);
       } finally {
@@ -80,7 +84,7 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>{greeting},</Text>
           <Text style={styles.name}>{childName}!</Text>
         </View>
-        <StreakCounter streak={profile?.streak || 0} />
+        <StreakCounter streak={currentStreak} />
       </View>
       
       {/* Daily Story */}

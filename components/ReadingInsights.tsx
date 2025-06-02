@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { TrendingUp, Clock, Calendar, Book, Target, Award } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { ReadingSessionStats } from '@/types';
-import { getReadingSessionStats, getTodayReadingSessions, getReadingStreak } from '@/services/readingSessionService';
+import { getReadingSessionStats, getTodayReadingSessions } from '@/services/readingSessionService';
+import { getUserStreakData } from '@/services/streakService';
 
 type ReadingInsightsProps = {
   userId?: string;
@@ -26,11 +27,14 @@ export default function ReadingInsights({ userId }: ReadingInsightsProps) {
         const [sessionStats, todaySessions, streakInfo] = await Promise.all([
           getReadingSessionStats(userId),
           getTodayReadingSessions(userId),
-          getReadingStreak(userId)
+          getUserStreakData(userId)
         ]);
         
         setStats(sessionStats);
-        setStreakData(streakInfo);
+        setStreakData({
+          currentStreak: streakInfo.currentStreak,
+          longestStreak: streakInfo.longestStreak
+        });
         setTodayGoalMet(sessionStats.dailyReadingTime >= DAILY_READING_GOAL);
       } catch (error) {
         console.error('Error loading reading insights:', error);
