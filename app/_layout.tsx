@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Redirect, Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useFonts } from 'expo-font';
@@ -13,7 +13,6 @@ import {
   Quicksand_700Bold 
 } from '@expo-google-fonts/quicksand';
 import { SplashScreen } from 'expo-router';
-import { View, ActivityIndicator } from 'react-native';
 import { AppProvider } from '@/context/AppContext';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
@@ -23,8 +22,7 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   useFrameworkReady();
-  const [isLoading, setIsLoading] = useState(true);
-  const [initialRoute, setInitialRoute] = useState<string | null>(null);
+  const router = useRouter();
 
   const [fontsLoaded, fontError] = useFonts({
     'Nunito-Regular': Nunito_400Regular,
@@ -35,51 +33,45 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    async function checkAuthState() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          // Check if user has completed onboarding
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('onboarding_completed')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (profile?.onboarding_completed) {
-            setInitialRoute('/(tabs)');
-          } else {
-            setInitialRoute('/onboarding');
-          }
-        } else {
-          setInitialRoute('/auth/sign-in');
-        }
-      } catch (error) {
-        console.error('Error checking auth state:', error);
-        setInitialRoute('/auth/sign-in');
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    if (fontError) throw fontError;
+  }, [fontError]);
 
-    checkAuthState();
-  }, []);
-
-  // Hide splash screen once fonts are loaded and authentication is checked
   useEffect(() => {
-    if ((fontsLoaded || fontError) && !isLoading) {
-      SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError, isLoading]);
+    if (fontsLoaded) {
+      const checkAuthState = async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            // Check if user has completed onboarding
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('onboarding_completed')
+              .eq('id', session.user.id)
+              .single();
+            
+            if (profile?.onboarding_completed) {
+              router.replace('/(tabs)');
+            } else {
+              router.replace('/onboarding');
+            }
+          } else {
+            router.replace('/auth/sign-in');
+          }
+        } catch (error) {
+          console.error('Error checking auth state:', error);
+          router.replace('/auth/sign-in');
+        } finally {
+          SplashScreen.hideAsync();
+        }
+      };
 
-  // Return loading indicator until everything is ready
-  if (!fontsLoaded || isLoading || !initialRoute) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+      checkAuthState();
+    }
+  }, [fontsLoaded, router]);
+
+  if (!fontsLoaded) {
+    return null;
   }
 
   return (
