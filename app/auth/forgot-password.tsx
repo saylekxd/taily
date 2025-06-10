@@ -12,10 +12,12 @@ import {
 import { useRouter } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/hooks/useI18n';
 import { colors } from '@/constants/colors';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +59,9 @@ export default function ForgotPasswordScreen() {
         </TouchableOpacity>
 
         <View style={styles.header}>
-          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.title}>{t('auth.resetPassword')}</Text>
           <Text style={styles.subtitle}>
-            Enter your email address and we&apos;ll send you instructions to reset your password
+            {t('auth.resetPasswordSubtitle')}
           </Text>
         </View>
 
@@ -70,20 +72,20 @@ export default function ForgotPasswordScreen() {
         {success ? (
           <View style={styles.successContainer}>
             <Text style={styles.successText}>
-              Password reset instructions have been sent to your email address.
+              {t('auth.resetPasswordSuccess')}
             </Text>
             <TouchableOpacity
               style={styles.button}
               onPress={() => router.replace('/auth/sign-in')}
             >
-              <Text style={styles.buttonText}>Return to Sign In</Text>
+              <Text style={styles.buttonText}>{t('auth.returnToSignIn')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.form}>
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder={t('common.email')}
               placeholderTextColor={colors.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -97,7 +99,7 @@ export default function ForgotPasswordScreen() {
               disabled={loading}
             >
               <Text style={styles.buttonText}>
-                {loading ? 'Sending...' : 'Send Reset Instructions'}
+                {loading ? t('auth.sending') : t('auth.sendResetInstructions')}
               </Text>
             </TouchableOpacity>
           </View>

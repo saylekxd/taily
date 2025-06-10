@@ -185,6 +185,9 @@
     "sendResetInstructions": "Send Reset Instructions",
     "returnToSignIn": "Return to Sign In",
     "passwordResetSent": "Password reset instructions have been sent to your email address.",
+    "resetPasswordSuccess": "Password reset instructions have been sent to your email address.",
+    "creatingAccount": "Creating Account...",
+    "passwordsDoNotMatch": "Passwords do not match",
     "alreadyHaveAccount": "Already have an account?",
     "dontHaveAccount": "Don't have an account?"
   },

@@ -185,6 +185,9 @@
     "sendResetInstructions": "Wyślij Instrukcje Resetowania",
     "returnToSignIn": "Powróć do Logowania",
     "passwordResetSent": "Instrukcje resetowania hasła zostały wysłane na Twój adres email.",
+    "resetPasswordSuccess": "Instrukcje resetowania hasła zostały wysłane na Twój adres email.",
+    "creatingAccount": "Tworzenie Konta...",
+    "passwordsDoNotMatch": "Hasła nie są zgodne",
     "alreadyHaveAccount": "Masz już konto?",
     "dontHaveAccount": "Nie masz konta?"
   },

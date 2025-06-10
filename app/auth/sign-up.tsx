@@ -12,10 +12,12 @@ import {
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useI18n } from '@/hooks/useI18n';
 import { colors } from '@/constants/colors';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -28,7 +30,7 @@ export default function SignUpScreen() {
       setError(null);
 
       if (password !== confirmPassword) {
-        throw new Error('Passwords do not match');
+        throw new Error(t('auth.passwordsDoNotMatch'));
       }
 
       const { error } = await supabase.auth.signUp({
@@ -61,8 +63,8 @@ export default function SignUpScreen() {
             source={{ uri: 'https://images.pexels.com/photos/4021521/pexels-photo-4021521.jpeg' }}
             style={styles.logo}
           />
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join our magical storytelling community</Text>
+          <Text style={styles.title}>{t('auth.createAccount')}</Text>
+          <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
         </View>
 
         {error && (
@@ -72,7 +74,7 @@ export default function SignUpScreen() {
         <View style={styles.form}>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder={t('common.email')}
             placeholderTextColor={colors.textSecondary}
             value={email}
             onChangeText={setEmail}
@@ -82,7 +84,7 @@ export default function SignUpScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Password"
+            placeholder={t('common.password')}
             placeholderTextColor={colors.textSecondary}
             value={password}
             onChangeText={setPassword}
@@ -91,7 +93,7 @@ export default function SignUpScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder="Confirm Password"
+            placeholder={t('auth.confirmPassword')}
             placeholderTextColor={colors.textSecondary}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -104,14 +106,14 @@ export default function SignUpScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Creating Account...' : 'Sign Up'}
+              {loading ? t('auth.creatingAccount') : t('auth.signUp')}
             </Text>
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>{t('auth.alreadyHaveAccount')} </Text>
             <Link href="/auth/sign-in" style={styles.link}>
-              Sign In
+              {t('auth.signIn')}
             </Link>
           </View>
         </View>
