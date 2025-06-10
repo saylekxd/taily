@@ -24,7 +24,7 @@
       "sourceExts": ["ts", "tsx", "js", "jsx"],
       "transformer": {
         "sourceMap": {
-          "includeSources": true
+          "includeSources": false
         }
       }
     }
