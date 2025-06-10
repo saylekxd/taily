@@ -1,69 +1,46 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const { isCloudEnvironment } = require('./utils/environment');
 
 /** @type {import('expo/metro-config').MetroConfig} */
-const config = getDefaultConfig(process.cwd());
+const config = getDefaultConfig(__dirname);
 
-// Basic configuration
-config.resolver.sourceExts = ['ts', 'tsx', 'js', 'jsx', 'json'];
-config.resolver.platforms = ['ios', 'android', 'native', 'web'];
+// Ensure proper source map generation
+config.resolver.sourceExts.push('ts', 'tsx');
 
-// Cloud environment specific configuration
-if (isCloudEnvironment()) {
-  console.log('🌤️  Running in cloud environment - disabling source maps');
-  
-  // Completely disable ALL source map generation
-  config.transformer = {
-    ...config.transformer,
-    minifierPath: 'metro-minify-terser',
-    minifierConfig: {
-      sourceMap: false,
-      output: {
-        comments: false,
-      },
+// Add better error handling for source maps
+config.transformer = {
+  ...config.transformer,
+  minifierConfig: {
+    keep_fnames: true,
+    mangle: {
+      keep_fnames: true,
     },
-    // Disable inline source maps
-    inlineSourceMap: false,
-    // Disable source map generation in transformer
-    getTransformOptions: async () => ({
-      transform: {
-        experimentalImportSupport: false,
-        inlineRequires: true,
-        // Disable source maps at transform level
-        sourceMap: false,
-      },
-    }),
-  };
-  
-  // Disable symbolication entirely
-  config.symbolicator = {
-    customizeFrame: () => null,
-  };
-  
-  // Override server configuration
-  config.server = {
-    ...config.server,
-    enableSymbolication: false,
-    // Disable source map URL comments
-    rewriteRequestUrl: (url) => {
-      if (url.includes('.map') || url.includes('<anonymous>')) {
-        return '/dev/null';
-      }
-      return url;
+    output: {
+      ascii_only: true,
+      quote_style: 3,
+      wrap_iife: true,
     },
-  };
-  
-  // Additional resolver configuration for cloud
-  config.resolver = {
-    ...config.resolver,
-    // Disable source map resolution
-    resolveRequest: (context, moduleName, platform) => {
-      if (moduleName.includes('.map') || moduleName === '<anonymous>') {
-        return { type: 'empty' };
-      }
-      return context.resolveRequest(context, moduleName, platform);
+    sourceMap: {
+      includeSources: false,
     },
-  };
-}
+  },
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
+};
+
+// Add resolver configuration for better module resolution
+config.resolver = {
+  ...config.resolver,
+  unstable_enableSymlinks: true,
+  unstable_enablePackageExports: true,
+  platforms: ['ios', 'android', 'native', 'web'],
+};
+
+// Ensure watchman is configured properly for cloud environments
+config.watchFolders = [__dirname];
+config.resetCache = true;
 
 module.exports = config; 
