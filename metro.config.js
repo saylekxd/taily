@@ -58,7 +58,11 @@ if (isCloudEnvironment()) {
     ...config.resolver,
     // Disable source map resolution
     resolveRequest: (context, moduleName, platform) => {
-      if (moduleName.includes('.map') || moduleName === '<anonymous>') {
+      if (
+        moduleName.includes('.map') ||
+        moduleName === '<anonymous>' ||
+        moduleName.includes('<anonymous>')
+      ) {
         return { type: 'empty' };
       }
       return context.resolveRequest(context, moduleName, platform);
