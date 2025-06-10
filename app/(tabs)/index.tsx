@@ -25,7 +25,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, profile, loading: authLoading, sessionError, retrySession } = useUser();
+  const { user, profile } = useUser();
   const { t } = useI18n();
   const [recommendedStories, setRecommendedStories] = useState<Story[]>([]);
   const [inProgressStories, setInProgressStories] = useState<Story[]>([]);
@@ -33,19 +33,11 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && user?.id) {
-      loadStories();
-    } else if (!authLoading && !user && !sessionError) {
-      // No user and no error means user is logged out
-      setIsLoading(false);
-    }
-  }, [user, profile, authLoading]);
+    loadStories();
+  }, [user, profile]);
 
   const loadStories = async () => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
+    if (!user?.id) return;
     
     setIsLoading(true);
     
@@ -68,32 +60,12 @@ export default function HomeScreen() {
     }
   };
 
-  // Handle session error state
-  if (sessionError) {
-    return (
-      <View style={[styles.container, styles.centerContent, { paddingTop: insets.top }]}>
-        <Text style={styles.errorText}>{t('common.error')}</Text>
-        <Text style={styles.errorSubtext}>Unable to connect. Please try again.</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={retrySession}>
-          <Text style={styles.retryButtonText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Show loading only when actually loading
-  if (authLoading || (isLoading && user)) {
+  if (isLoading) {
     return (
       <View style={[styles.container, styles.centerContent, { paddingTop: insets.top }]}>
         <Text style={styles.loadingText}>{t('home.loadingStories')}</Text>
       </View>
     );
-  }
-
-  // If no user after loading, redirect to sign in
-  if (!authLoading && !user) {
-    router.replace('/auth/sign-in');
-    return null;
   }
 
   return (
@@ -278,29 +250,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     marginRight: 4,
-  },
-  errorText: {
-    fontFamily: 'Nunito-Bold',
-    fontSize: 18,
-    color: colors.white,
-    marginBottom: 8,
-  },
-  errorSubtext: {
-    fontFamily: 'Nunito-Regular',
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    fontFamily: 'Nunito-Bold',
-    fontSize: 16,
-    color: colors.white,
   },
 });
