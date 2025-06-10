@@ -21,7 +21,8 @@
     "confirmPassword": "Potwierdź Hasło",
     "sending": "Wysyłanie...",
     "welcomeToStoryTime": "Witaj w StoryTime!",
-    "enterName": "Wpisz imię"
+    "enterName": "Wpisz imię",
+    "delete": "Usuń"
   },
   "profile": {
     "title": "Profil",
@@ -79,7 +80,12 @@
     "loadingStories": "Ładowanie Twoich historii...",
     "yourDailyStory": "Twoja Dzienna Historia",
     "noDailyStory": "Brak dziennej historii na dziś",
-    "noDailyStorySubtext": "Sprawdź jutro nową historię!"
+    "noDailyStorySubtext": "Sprawdź jutro nową historię!",
+    "yourPersonalizedStories": "Twoje Spersonalizowane Historie",
+    "createNew": "Utwórz Nową",
+    "noPersonalizedStories": "Brak spersonalizowanych historii",
+    "createFirstPersonalizedStory": "Twórz historie, w których Twoje dziecko jest bohaterem!",
+    "createYourFirstStory": "Utwórz Swoją Pierwszą Historię"
   },
   "catalog": {
     "title": "Katalog",
@@ -121,7 +127,23 @@
     "completed": "Ukończono!",
     "progress": "{{percent}}% ukończone",
     "loadingStory": "Ładowanie historii...",
-    "readingTimeLabel": "Czas czytania: {{time}}"
+    "readingTimeLabel": "Czas czytania: {{time}}",
+    "personalized": "Spersonalizowana",
+    "deleteStory": "Usuń Historię",
+    "deleteStoryConfirm": "Czy na pewno chcesz usunąć tę spersonalizowaną historię? Tej akcji nie można cofnąć.",
+    "deleteStoryError": "Nie udało się usunąć historii. Spróbuj ponownie."
+  },
+  "generator": {
+    "createPersonalizedStory": "Utwórz Spersonalizowaną Historię",
+    "storyWillFeature": "Twoja historia będzie przedstawiać:",
+    "chooseTheme": "Wybierz temat",
+    "basedOnInterests": "Na podstawie Twoich zainteresowań",
+    "storiesRemaining": "Pozostało {{remaining}} z {{total}} historii",
+    "storyPreview": "Podgląd Historii",
+    "storyWillBeAbout": "{{name}} wyruszy na niesamowitą przygodę związaną z {{theme}}!",
+    "selectThemeToSeePreview": "Wybierz temat, aby zobaczyć, o czym będzie Twoja historia",
+    "generateStory": "Wygeneruj Historię",
+    "generatingStory": "Generowanie Historii..."
   },
   "achievements": {
     "title": "Osiągnięcia",
@@ -240,4 +262,4 @@
     "bookworm": "Czytaj przez więcej niż godzinę dziennie",
     "explorer": "Przeczytaj historie z 5 różnych kategorii"
   }
-} 
+}

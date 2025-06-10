@@ -7,18 +7,23 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  FlatList
+  FlatList,
+  Alert
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Sparkles } from 'lucide-react-native';
 import StoryCard from '@/components/StoryCard';
+import PersonalizedStoryCard from '@/components/PersonalizedStoryCard';
+import PersonalizedStoryGenerator from '@/components/PersonalizedStoryGenerator';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
 import { getRecommendedStories, getInProgressStories } from '@/services/storyService';
 import { getDailyStory } from '@/services/dailyStoryService';
+import { getUserPersonalizedStories, deletePersonalizedStory, getUserStoryLimitInfo } from '@/services/personalizedStoryService';
 import { Story } from '@/types';
+import { PersonalizedStory } from '@/services/personalizedStoryService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -29,8 +34,11 @@ export default function HomeScreen() {
   const { t } = useI18n();
   const [recommendedStories, setRecommendedStories] = useState<Story[]>([]);
   const [inProgressStories, setInProgressStories] = useState<Story[]>([]);
+  const [personalizedStories, setPersonalizedStories] = useState<PersonalizedStory[]>([]);
   const [dailyStory, setDailyStory] = useState<Story | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showGenerator, setShowGenerator] = useState(false);
+  const [limitInfo, setLimitInfo] = useState({ currentCount: 0, maxCount: 2, canGenerate: true });
 
   useEffect(() => {
     loadStories();
@@ -53,11 +61,52 @@ export default function HomeScreen() {
       // Get daily story from the daily story service
       const daily = await getDailyStory();
       setDailyStory(daily);
+      
+      // Get personalized stories
+      const personalized = await getUserPersonalizedStories(user.id);
+      setPersonalizedStories(personalized);
+      
+      // Get limit info
+      const info = await getUserStoryLimitInfo(user.id);
+      setLimitInfo(info);
     } catch (error) {
       console.error('Error loading stories:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeletePersonalizedStory = async (storyId: string) => {
+    Alert.alert(
+      t('story.deleteStory'),
+      t('story.deleteStoryConfirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { 
+          text: t('common.delete'), 
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deletePersonalizedStory(storyId, user?.id || '');
+            if (success) {
+              setPersonalizedStories(prev => prev.filter(s => s.id !== storyId));
+              // Update limit info
+              const info = await getUserStoryLimitInfo(user?.id || '');
+              setLimitInfo(info);
+            } else {
+              Alert.alert(t('common.error'), t('story.deleteStoryError'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleStoryGenerated = (story: PersonalizedStory) => {
+    setPersonalizedStories(prev => [story, ...prev]);
+    // Navigate to the new story
+    router.push(`/story/${story.id}?personalized=true`);
+    // Refresh limit info
+    loadStories();
   };
 
   if (isLoading) {
@@ -79,6 +128,59 @@ export default function HomeScreen() {
         <Text style={styles.greeting}>
           {t('home.welcomeBack', { name: profile?.child_name || t('profile.explorer') })}
         </Text>
+      </View>
+
+      {/* Personalized Stories Section */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleContainer}>
+            <Sparkles size={20} color={colors.accent} />
+            <Text style={styles.sectionTitle}>{t('home.yourPersonalizedStories')}</Text>
+          </View>
+          {limitInfo.canGenerate && (
+            <TouchableOpacity 
+              style={styles.createStoryButton}
+              onPress={() => setShowGenerator(true)}
+            >
+              <Sparkles size={16} color={colors.white} />
+              <Text style={styles.createStoryText}>{t('home.createNew')}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {personalizedStories.length > 0 ? (
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {personalizedStories.map((story, index) => (
+              <View key={story.id} style={[styles.horizontalCard, { marginLeft: index === 0 ? 0 : 12 }]}>
+                <PersonalizedStoryCard 
+                  story={story} 
+                  size="medium"
+                  onPress={() => router.push(`/story/${story.id}?personalized=true`)}
+                  onDelete={() => handleDeletePersonalizedStory(story.id)}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyPersonalizedContainer}>
+            <Sparkles size={48} color={colors.accent} />
+            <Text style={styles.emptyPersonalizedTitle}>{t('home.noPersonalizedStories')}</Text>
+            <Text style={styles.emptyPersonalizedSubtitle}>{t('home.createFirstPersonalizedStory')}</Text>
+            {limitInfo.canGenerate && (
+              <TouchableOpacity 
+                style={styles.createFirstStoryButton}
+                onPress={() => setShowGenerator(true)}
+              >
+                <Sparkles size={16} color={colors.white} />
+                <Text style={styles.createFirstStoryText}>{t('home.createYourFirstStory')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       {/* Daily Story */}
@@ -164,6 +266,13 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
       )}
+
+      {/* Personalized Story Generator Modal */}
+      <PersonalizedStoryGenerator
+        visible={showGenerator}
+        onClose={() => setShowGenerator(false)}
+        onStoryGenerated={handleStoryGenerated}
+      />
     </ScrollView>
   );
 }
@@ -207,10 +316,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   sectionTitle: {
     fontFamily: 'Nunito-Bold',
     fontSize: 20,
     color: colors.white,
+    marginLeft: 8,
+  },
+  createStoryButton: {
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  createStoryText: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 12,
+    color: colors.white,
+    marginLeft: 4,
+  },
+  emptyPersonalizedContainer: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  emptyPersonalizedTitle: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 18,
+    color: colors.white,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyPersonalizedSubtitle: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  createFirstStoryButton: {
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+  },
+  createFirstStoryText: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 14,
+    color: colors.white,
+    marginLeft: 8,
   },
   noDailyStoryContainer: {
     backgroundColor: colors.card,

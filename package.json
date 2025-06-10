@@ -12,6 +12,7 @@
     "@expo-google-fonts/nunito": "^0.2.3",
     "@expo-google-fonts/quicksand": "^0.2.3",
     "@expo/vector-icons": "^14.1.0",
+    "@google/generative-ai": "^0.21.0",
     "@lucide/lab": "^0.1.2",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",

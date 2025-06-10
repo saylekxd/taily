@@ -15,23 +15,28 @@ import {
   Heart, 
   BookOpen, 
   Share2,
-  RotateCcw
+  RotateCcw,
+  Sparkles
 } from 'lucide-react-native';
 import * as Speech from 'expo-speech';
 import { LinearGradient } from 'expo-linear-gradient';
 import ProgressBar from '@/components/ProgressBar';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
+import { useI18n } from '@/hooks/useI18n';
 import { getStoryByIdWithUserData, createOrUpdateUserStory, getUserCompletedStoryCount } from '@/services/storyService';
+import { getPersonalizedStoryById } from '@/services/personalizedStoryService';
 import { startReadingSession, endReadingSession } from '@/services/readingSessionService';
 import { Story } from '@/types';
+import { PersonalizedStory } from '@/services/personalizedStoryService';
 import { checkAndGrantAchievement } from '@/services/achievementService';
 
 export default function StoryScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, personalized } = useLocalSearchParams<{ id: string; personalized?: string }>();
   const router = useRouter();
   const { user } = useUser();
-  const [story, setStory] = useState<Story | null>(null);
+  const { t } = useI18n();
+  const [story, setStory] = useState<Story | PersonalizedStory | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -47,46 +52,73 @@ export default function StoryScreen() {
   const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const lastSaveTimeRef = useRef<number | null>(null);
+  const isMountedRef = useRef(true);
   
   // Load story data and start reading session
   useEffect(() => {
+    isMountedRef.current = true;
+    
     async function loadStoryAndStartSession() {
       if (!id || !user?.id) return;
       
+      if (!isMountedRef.current) return;
       setLoading(true);
       
-      // Use the new function to get story with user data
-      const storyData = await getStoryByIdWithUserData(id, user.id);
-      if (storyData) {
-        setStory(storyData);
-        const savedProgress = storyData.progress || 0;
-        setProgress(savedProgress);
-        setIsFavorite(storyData.is_favorite || false);
-        setIsCompleted(storyData.completed || false);
+      try {
+        let storyData: Story | PersonalizedStory | null = null;
         
-        // If there's saved progress > 5%, we should scroll to it
-        if (savedProgress > 0.05) {
-          setShouldScrollToProgress(true);
+        if (personalized === 'true') {
+          // Load personalized story
+          storyData = await getPersonalizedStoryById(id, user.id);
+        } else {
+          // Load regular story with user data
+          storyData = await getStoryByIdWithUserData(id, user.id);
         }
         
-        // Create or update user_story record to track that user opened this story
-        await createOrUpdateUserStory({
-          user_id: user.id,
-          story_id: id,
-          progress: savedProgress,
-          is_favorite: storyData.is_favorite || false,
-          completed: storyData.completed || false,
-        });
-        
-        // Start a new reading session
-        const sessionId = await startReadingSession(user.id, id);
-        setCurrentSessionId(sessionId);
+        if (storyData && isMountedRef.current) {
+          setStory(storyData);
+          const savedProgress = storyData.progress || 0;
+          setProgress(savedProgress);
+          setIsFavorite(storyData.is_favorite || false);
+          setIsCompleted(storyData.completed || false);
+          
+          // If there's saved progress > 5%, we should scroll to it
+          if (savedProgress > 0.05) {
+            setShouldScrollToProgress(true);
+          }
+          
+          // For regular stories, create or update user_story record
+          if (personalized !== 'true') {
+            await createOrUpdateUserStory({
+              user_id: user.id,
+              story_id: id,
+              progress: savedProgress,
+              is_favorite: storyData.is_favorite || false,
+              completed: storyData.completed || false,
+            });
+          }
+          
+          // Start a new reading session
+          const sessionId = await startReadingSession(user.id, id);
+          if (isMountedRef.current) {
+            setCurrentSessionId(sessionId);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading story:', error);
+      } finally {
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     }
     
     loadStoryAndStartSession();
-  }, [id, user?.id]);
+    
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [id, user?.id, personalized]);
 
   // Handle reading time tracking and auto-save
   useEffect(() => {
@@ -94,7 +126,7 @@ export default function StoryScreen() {
     lastSaveTimeRef.current = Date.now();
     
     readingTimerRef.current = setInterval(() => {
-      if (startTimeRef.current) {
+      if (startTimeRef.current && isMountedRef.current) {
         const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
         setReadingTime(elapsedSeconds);
       }
@@ -102,20 +134,23 @@ export default function StoryScreen() {
     
     // Auto-save every 10 seconds
     autoSaveTimerRef.current = setInterval(async () => {
-      if (!user?.id || !story?.id) return;
+      if (!user?.id || !story?.id || !isMountedRef.current) return;
       
       const currentTime = Date.now();
       const timeSinceLastSave = Math.floor((currentTime - (lastSaveTimeRef.current || currentTime)) / 1000);
       
       try {
-        await createOrUpdateUserStory({
-          user_id: user.id,
-          story_id: story.id,
-          progress: progressRef.current,
-          is_favorite: isFavoriteRef.current,
-          reading_time: Math.max(timeSinceLastSave, 10), // At least 10 seconds
-          completed: isCompletedRef.current,
-        });
+        // Only save for regular stories, not personalized ones
+        if (personalized !== 'true') {
+          await createOrUpdateUserStory({
+            user_id: user.id,
+            story_id: story.id,
+            progress: progressRef.current,
+            is_favorite: isFavoriteRef.current,
+            reading_time: Math.max(timeSinceLastSave, 10), // At least 10 seconds
+            completed: isCompletedRef.current,
+          });
+        }
         
         lastSaveTimeRef.current = currentTime;
         console.log('Auto-saved progress:', { 
@@ -140,7 +175,7 @@ export default function StoryScreen() {
       // End reading session when leaving the screen
       endCurrentSession();
     };
-  }, [user?.id, story?.id]); // Only depend on user and story IDs
+  }, [user?.id, story?.id, personalized]); // Only depend on user and story IDs
 
   // Update progress, favorite, and completion status refs for auto-save
   const progressRef = useRef(progress);
@@ -163,7 +198,7 @@ export default function StoryScreen() {
   // Check if story is completed when progress changes
   useEffect(() => {
     const completed = progress >= 0.95;
-    if (completed && !isCompleted) {
+    if (completed && !isCompleted && isMountedRef.current) {
       setIsCompleted(true);
       endCurrentSession(true); // Mark as completed
     }
@@ -183,15 +218,17 @@ export default function StoryScreen() {
       });
       
       setTimeout(() => {
-        scrollViewRef.current?.scrollTo({
-          y: Math.max(0, scrollPosition),
-          animated: true,
-        });
-        setShouldScrollToProgress(false);
-        console.log('✅ Auto-scrolled to saved progress:', { 
-          progress: `${(progress * 100).toFixed(1)}%`, 
-          scrollPosition: scrollPosition.toFixed(0) 
-        });
+        if (isMountedRef.current) {
+          scrollViewRef.current?.scrollTo({
+            y: Math.max(0, scrollPosition),
+            animated: true,
+          });
+          setShouldScrollToProgress(false);
+          console.log('✅ Auto-scrolled to saved progress:', { 
+            progress: `${(progress * 100).toFixed(1)}%`, 
+            scrollPosition: scrollPosition.toFixed(0) 
+          });
+        }
       }, 1000); // Increased delay to ensure content is fully rendered
     }
   }, [shouldScrollToProgress, contentHeight, scrollViewHeight, progress]);
@@ -205,15 +242,17 @@ export default function StoryScreen() {
     // End the reading session
     await endReadingSession(currentSessionId, currentReadingTime, finalCompleted);
     
-    // Update user_stories with final data
-    await createOrUpdateUserStory({
-      user_id: user.id,
-      story_id: story.id,
-      progress: progressRef.current,
-      is_favorite: isFavoriteRef.current,
-      reading_time: currentReadingTime,
-      completed: finalCompleted,
-    });
+    // Update user_stories with final data (only for regular stories)
+    if (personalized !== 'true') {
+      await createOrUpdateUserStory({
+        user_id: user.id,
+        story_id: story.id,
+        progress: progressRef.current,
+        is_favorite: isFavoriteRef.current,
+        reading_time: currentReadingTime,
+        completed: finalCompleted,
+      });
+    }
     
     console.log('Session ended:', { 
       progress: progressRef.current.toFixed(2), 
@@ -247,7 +286,9 @@ export default function StoryScreen() {
       1
     );
     
-    setProgress(currentProgress);
+    if (isMountedRef.current) {
+      setProgress(currentProgress);
+    }
   };
 
   const handleContentSizeChange = (contentWidth: number, contentHeight: number) => {
@@ -263,8 +304,10 @@ export default function StoryScreen() {
 
   const revertReading = async () => {
     // Reset progress to beginning
-    setProgress(0);
-    setIsCompleted(false);
+    if (isMountedRef.current) {
+      setProgress(0);
+      setIsCompleted(false);
+    }
     
     // Scroll to top
     scrollViewRef.current?.scrollTo({
@@ -272,8 +315,8 @@ export default function StoryScreen() {
       animated: true,
     });
     
-    // Update user_stories with reset progress
-    if (user?.id && story?.id) {
+    // Update user_stories with reset progress (only for regular stories)
+    if (user?.id && story?.id && personalized !== 'true') {
       await createOrUpdateUserStory({
         user_id: user.id,
         story_id: story.id,
@@ -290,10 +333,12 @@ export default function StoryScreen() {
 
   const toggleFavorite = async () => {
     const newFavoriteState = !isFavorite;
-    setIsFavorite(newFavoriteState);
+    if (isMountedRef.current) {
+      setIsFavorite(newFavoriteState);
+    }
     
-    // Immediately update user_stories table
-    if (user?.id && story?.id) {
+    // Immediately update user_stories table (only for regular stories)
+    if (user?.id && story?.id && personalized !== 'true') {
       await createOrUpdateUserStory({
         user_id: user.id,
         story_id: story.id,
@@ -311,13 +356,15 @@ export default function StoryScreen() {
     
     if (isPlaying) {
       Speech.stop();
-      setIsPlaying(false);
+      if (isMountedRef.current) {
+        setIsPlaying(false);
+      }
     } else {
       Speech.speak(story.content, {
-        onStart: () => setIsPlaying(true),
-        onDone: () => setIsPlaying(false),
-        onStopped: () => setIsPlaying(false),
-        onError: () => setIsPlaying(false),
+        onStart: () => isMountedRef.current && setIsPlaying(true),
+        onDone: () => isMountedRef.current && setIsPlaying(false),
+        onStopped: () => isMountedRef.current && setIsPlaying(false),
+        onError: () => isMountedRef.current && setIsPlaying(false),
       });
     }
   };
@@ -341,6 +388,8 @@ export default function StoryScreen() {
     );
   }
 
+  const isPersonalizedStory = personalized === 'true';
+
   return (
     <View style={styles.container}>
       {/* Progress Bar */}
@@ -357,6 +406,15 @@ export default function StoryScreen() {
           colors={['rgba(0,0,0,0.7)', 'transparent']}
           style={styles.headerGradient}
         />
+        
+        {/* Personalized badge */}
+        {isPersonalizedStory && (
+          <View style={styles.personalizedBadge}>
+            <Sparkles size={16} color={colors.white} />
+            <Text style={styles.personalizedText}>{t('story.personalized')}</Text>
+          </View>
+        )}
+        
         <View style={styles.titleContainer}>
           <Text style={styles.title}>{story.title}</Text>
           <Text style={styles.category}>{story.categories?.join(' • ')}</Text>
@@ -393,13 +451,16 @@ export default function StoryScreen() {
           <RotateCcw size={24} color={colors.white} />
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.controlButton} onPress={toggleFavorite}>
-          <Heart 
-            size={24} 
-            color={colors.white} 
-            fill={isFavorite ? colors.error : 'transparent'} 
-          />
-        </TouchableOpacity>
+        {/* Only show favorite button for regular stories */}
+        {!isPersonalizedStory && (
+          <TouchableOpacity style={styles.controlButton} onPress={toggleFavorite}>
+            <Heart 
+              size={24} 
+              color={colors.white} 
+              fill={isFavorite ? colors.error : 'transparent'} 
+            />
+          </TouchableOpacity>
+        )}
         
         <TouchableOpacity style={styles.controlButton} onPress={shareStory}>
           <Share2 size={24} color={colors.white} />
@@ -447,6 +508,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: '100%',
+  },
+  personalizedBadge: {
+    position: 'absolute',
+    top: 60,
+    right: 16,
+    backgroundColor: colors.accent,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  personalizedText: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 12,
+    color: colors.white,
+    marginLeft: 4,
+    letterSpacing: 0.5,
   },
   titleContainer: {
     position: 'absolute',

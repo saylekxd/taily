@@ -11,7 +11,7 @@
     "continue": "Continue",
     "skip": "Skip",
     "next": "Next",
-    "previous": "Previousa",
+    "previous": "Previous",
     "finish": "Finish",
     "done": "Done",
     "close": "Close",
@@ -21,7 +21,8 @@
     "confirmPassword": "Confirm Password",
     "sending": "Sending...",
     "welcomeToStoryTime": "Welcome to StoryTime!",
-    "enterName": "Enter name"
+    "enterName": "Enter name",
+    "delete": "Delete"
   },
   "profile": {
     "title": "Profile",
@@ -79,7 +80,12 @@
     "loadingStories": "Loading your stories...",
     "yourDailyStory": "Your Daily Story",
     "noDailyStory": "No daily story available today",
-    "noDailyStorySubtext": "Check back tomorrow for a new story!"
+    "noDailyStorySubtext": "Check back tomorrow for a new story!",
+    "yourPersonalizedStories": "Your Personalized Stories",
+    "createNew": "Create New",
+    "noPersonalizedStories": "No personalized stories yet",
+    "createFirstPersonalizedStory": "Create stories where your child is the hero!",
+    "createYourFirstStory": "Create Your First Story"
   },
   "catalog": {
     "title": "Catalog",
@@ -121,7 +127,23 @@
     "completed": "Completed!",
     "progress": "{{percent}}% complete",
     "loadingStory": "Loading story...",
-    "readingTimeLabel": "Reading time: {{time}}"
+    "readingTimeLabel": "Reading time: {{time}}",
+    "personalized": "Personalized",
+    "deleteStory": "Delete Story",
+    "deleteStoryConfirm": "Are you sure you want to delete this personalized story? This action cannot be undone.",
+    "deleteStoryError": "Failed to delete story. Please try again."
+  },
+  "generator": {
+    "createPersonalizedStory": "Create Personalized Story",
+    "storyWillFeature": "Your story will feature:",
+    "chooseTheme": "Choose a theme",
+    "basedOnInterests": "Based on your interests",
+    "storiesRemaining": "{{remaining}} of {{total}} stories remaining",
+    "storyPreview": "Story Preview",
+    "storyWillBeAbout": "{{name}} will go on an amazing {{theme}} adventure!",
+    "selectThemeToSeePreview": "Select a theme to see what your story will be about",
+    "generateStory": "Generate Story",
+    "generatingStory": "Generating Story..."
   },
   "achievements": {
     "title": "Achievements",
@@ -240,4 +262,4 @@
     "bookworm": "Read for more than 1 hour in a day",
     "explorer": "Read stories from 5 different categories"
   }
-} 
+}
