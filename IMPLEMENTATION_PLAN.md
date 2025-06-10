@@ -111,85 +111,195 @@ CREATE POLICY "Users can create their own personalized stories"
 ## Feature 2: Voice Read Mode with ElevenLabs
 
 ### Overview
-Add text-to-speech functionality using ElevenLabs API for natural voice narration.
+Add text-to-speech functionality with two different approaches:
+1. **Manual Audio for Regular Stories**: Generate and upload audio files manually for existing stories with ENG & PL language options
+2. **Automated Audio for AI Stories**: Generate personalized story audio automatically via ElevenLabs API (limited to 5 times per month per user)
 
 ### Backend Setup
 
 #### Step 2.1: Audio Storage Setup
 - [ ] Configure Supabase Storage bucket for audio files
 - [ ] Set up public access policies for audio files
+- [ ] Create separate folders for manual (`manual_audio/`) and AI-generated (`ai_audio/`) audio files
 
 #### Step 2.2: Database Schema Updates
-- [ ] Create migration for audio tracking
+- [ ] Create migration for audio tracking with language support
 ```sql
--- Add audio fields to stories table
+-- Add audio fields to stories table with language support
 ALTER TABLE stories 
-ADD COLUMN audio_url TEXT,
-ADD COLUMN audio_duration INTEGER,
-ADD COLUMN voice_id TEXT;
+ADD COLUMN audio_url_en TEXT,
+ADD COLUMN audio_url_pl TEXT,
+ADD COLUMN audio_duration_en INTEGER,
+ADD COLUMN audio_duration_pl INTEGER;
 
--- Add audio fields to personalized_stories table
+-- Add audio fields to personalized_stories table (AI-generated only)
 ALTER TABLE personalized_stories 
 ADD COLUMN audio_url TEXT,
 ADD COLUMN audio_duration INTEGER,
 ADD COLUMN voice_id TEXT;
 
--- Create audio_generation_jobs table for tracking
+-- Create audio_generation_usage table for tracking monthly limits
+CREATE TABLE audio_generation_usage (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  month INTEGER NOT NULL, -- 1-12
+  year INTEGER NOT NULL,
+  usage_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
+  UNIQUE(user_id, month, year)
+);
+
+-- Enable RLS
+ALTER TABLE audio_generation_usage ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view their own audio usage"
+  ON audio_generation_usage FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own audio usage"
+  ON audio_generation_usage FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own audio usage"
+  ON audio_generation_usage FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Create audio_generation_jobs table for tracking AI story generation
 CREATE TABLE audio_generation_jobs (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  story_id UUID,
-  personalized_story_id UUID,
+  personalized_story_id UUID REFERENCES personalized_stories(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   status TEXT CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
   error_message TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()),
   completed_at TIMESTAMP WITH TIME ZONE
 );
+
+-- Enable RLS
+ALTER TABLE audio_generation_jobs ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Users can view their own audio jobs"
+  ON audio_generation_jobs FOR SELECT
+  USING (auth.uid() = user_id);
+```
+
+### Edge Function Implementation (Secure API Key Handling)
+
+#### Step 2.3: Create ElevenLabs Edge Function
+- [ ] Create Supabase Edge Function for secure API calls
+- [ ] Set up ElevenLabs API key as Edge Function secret
+- [ ] Create `supabase/functions/generate-story-audio/index.ts`
+  - Text-to-speech conversion function
+  - Voice selection logic
+  - Audio file upload to Supabase Storage
+  - Usage limit validation
+  - Error handling and retry logic
+
+```typescript
+// Example Edge Function structure
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const { story_text, user_id, personalized_story_id } = await req.json()
+    
+    // Check monthly usage limit
+    // Generate audio via ElevenLabs API
+    // Upload to storage
+    // Update database
+    // Return audio URL
+    
+    return new Response(
+      JSON.stringify({ audio_url, duration }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+    )
+  }
+})
 ```
 
 ### Service Implementation
 
-#### Step 2.3: ElevenLabs Integration
-- [ ] Add ElevenLabs API configuration
-- [ ] Create `services/voiceService.ts`
-  - Text-to-speech conversion function
-  - Voice selection logic
-  - Audio file upload to Supabase Storage
-  - Error handling and retry logic
+#### Step 2.4: Audio Services
+- [ ] Create `services/audioService.ts`
+  - Function to call Edge Function for AI story audio generation
+  - Usage limit checking
+  - Manual audio URL retrieval based on language preference
+  - Error handling for API limits
 
-#### Step 2.4: Audio Generation Service
-- [ ] Implement batch processing for existing stories
-- [ ] Add queue system for new story audio generation
-- [ ] Create progress tracking
-- [ ] Add fallback to expo-speech for offline mode
+#### Step 2.5: Usage Tracking Service
+- [ ] Create `services/usageTrackingService.ts`
+  - Check monthly usage limits (5 generations per month)
+  - Update usage counters
+  - Reset monthly counters
+  - Provide usage status to UI
 
 ### Frontend Implementation
 
-#### Step 2.5: Audio Player UI
-- [ ] Update story viewer controls
-  - Replace/enhance current play button
-  - Add playback speed control
-  - Add progress bar for audio
-  - Show buffering state
+#### Step 2.6: Language Selection
+- [ ] Add language preference to user profile settings
+- [ ] Create language selection component for audio playback
+- [ ] Update profile service to handle language preferences
 
-#### Step 2.6: Audio Player Logic
+#### Step 2.7: Audio Player UI Enhancement
+- [ ] Update story viewer controls
+  - Language toggle for regular stories (ENG/PL)
+  - Generate audio button for AI stories (with usage counter)
+  - Play/pause functionality
+  - Progress bar for audio
+  - Show buffering/generation states
+  - Usage limit indicator
+
+#### Step 2.8: Audio Player Logic
 - [ ] Create `hooks/useAudioPlayer.ts`
   - Play/pause functionality
   - Progress tracking
   - Speed adjustment
   - Background audio support
+  - Language-aware audio selection
 
-#### Step 2.7: Offline Support
-- [ ] Implement audio caching
-- [ ] Add download button for offline listening
-- [ ] Show download progress
-- [ ] Manage storage limits
+#### Step 2.9: Usage Limit UI
+- [ ] Create usage tracking component
+  - Show monthly usage (X/5 used)
+  - Display reset date
+  - Warning when approaching limit
+  - Error handling when limit exceeded
+
+#### Step 2.10: Manual Audio File Organization
+- [ ] Create standardized naming convention for manual audio files in Supabase Storage
+  - Format: `manual_audio/{story_id}_en.mp3` and `manual_audio/{story_id}_pl.mp3`
+  - Upload files manually through Supabase Storage interface
+- [ ] Create database linking script/migration to associate uploaded files with stories
+  - Scan storage bucket for audio files
+  - Update `stories` table with `audio_url_en` and `audio_url_pl` paths
+  - Calculate and store audio duration
 
 ### Testing Checklist
-- [ ] Test audio generation for various story lengths
-- [ ] Verify audio playback on different devices
+- [ ] Test manual audio playback for both languages
+- [ ] Test AI story audio generation
+- [ ] Verify usage limit enforcement
+- [ ] Test Edge Function security
+- [ ] Check language switching functionality
 - [ ] Test background audio playback
-- [ ] Check offline functionality
-- [ ] Test error states (no network, API limits)
+- [ ] Verify monthly usage reset
+- [ ] Test error states (API limits, network issues)
 
 ---
 
