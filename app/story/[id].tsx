@@ -16,7 +16,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { useStoryData } from '@/hooks/useStoryData';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { useScrollTracking } from '@/hooks/useScrollTracking';
-import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
+
 import { createOrUpdateUserStory } from '@/services/storyService';
 import { Story } from '@/types';
 import { PersonalizedStory } from '@/services/personalizedStoryService';
@@ -78,11 +78,7 @@ export default function StoryScreen() {
     isMountedRef
   );
   
-  // Use the extracted speech synthesis hook
-  const {
-    isPlaying,
-    toggleReadAloud,
-  } = useSpeechSynthesis(story?.content, isMountedRef);
+  // Note: Speech synthesis is now handled within StoryControls component
   
 
 
@@ -179,13 +175,14 @@ export default function StoryScreen() {
       
       {/* Bottom Controls */}
       <StoryControls
-        isPlaying={isPlaying}
-        isFavorite={isFavorite}
+        storyId={isPersonalizedStory ? undefined : story.id}
+        personalizedStoryId={isPersonalizedStory ? story.id : undefined}
         isPersonalized={isPersonalizedStory}
-        onToggleReadAloud={toggleReadAloud}
+        isFavorite={isFavorite}
         onRevertReading={revertReading}
         onToggleFavorite={toggleFavorite}
         onShare={shareStory}
+        storyContent={story.content}
       />
       
       {/* Completion Message */}
