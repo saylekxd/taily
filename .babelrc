@@ -1,0 +1,25 @@
+{
+  "presets": ["babel-preset-expo"],
+  "plugins": [
+    [
+      "module-resolver",
+      {
+        "root": ["./"],
+        "alias": {
+          "@": "./"
+        },
+        "extensions": [
+          ".ios.js",
+          ".android.js",
+          ".js",
+          ".jsx",
+          ".json",
+          ".tsx",
+          ".ts",
+          ".native.js"
+        ]
+      }
+    ],
+    "react-native-reanimated/plugin"
+  ]
+} 

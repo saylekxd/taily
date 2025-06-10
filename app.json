@@ -20,13 +20,8 @@
     "experiments": {
       "typedRoutes": true
     },
-    "metro": {
-      "sourceExts": ["ts", "tsx", "js", "jsx"],
-      "transformer": {
-        "sourceMap": {
-          "includeSources": true
-        }
-      }
+    "packagerOpts": {
+      "sourceExts": ["ts", "tsx", "js", "jsx", "json"]
     }
   }
 }
