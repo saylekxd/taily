@@ -27,7 +27,7 @@ import ReadingInsights from '@/components/ReadingInsights';
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, profile, refreshProfile } = useUser();
+  const { user, profile, refreshProfile, logout } = useUser();
   const { t } = useI18n();
   const [polishLanguage, setPolishLanguage] = useState(profile?.language === 'pl');
   const [showInsights, setShowInsights] = useState(false);
@@ -38,7 +38,7 @@ export default function ProfileScreen() {
   }, [profile?.language]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await logout();
     router.replace('/auth/sign-in');
   };
 

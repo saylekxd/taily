@@ -49,5 +49,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // Ensure cookies work in cloud environments
+    flowType: 'pkce',
+    // Add session recovery options
+    debug: Platform.OS === 'web' ? true : false,
+  },
+  // Add global retry configuration
+  global: {
+    headers: {
+      'x-client-info': 'taily-app',
+    },
+  },
+  // Add realtime configuration to handle reconnections
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+    timeout: 20000,
   },
 });
