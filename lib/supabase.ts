@@ -20,10 +20,32 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
+// Web storage adapter for cloud environments
+const WebStorageAdapter = {
+  getItem: (key: string) => {
+    if (typeof window !== 'undefined') {
+      return Promise.resolve(window.localStorage.getItem(key));
+    }
+    return Promise.resolve(null);
+  },
+  setItem: (key: string, value: string) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(key, value);
+    }
+    return Promise.resolve();
+  },
+  removeItem: (key: string) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(key);
+    }
+    return Promise.resolve();
+  },
+};
+
 // Create Supabase client with proper authentication
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: Platform.OS === 'web' ? undefined : ExpoSecureStoreAdapter,
+    storage: Platform.OS === 'web' ? WebStorageAdapter : ExpoSecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
