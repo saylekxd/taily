@@ -98,7 +98,7 @@ export default function StoryScreen() {
             });
           }
           
-          // Start a new reading session - pass isPersonalized flag
+          // Start a new reading session (pass isPersonalized flag)
           const sessionId = await startReadingSession(user.id, id, personalized === 'true');
           if (isMountedRef.current) {
             setCurrentSessionId(sessionId);
