@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "start": "CLOUD_ENVIRONMENT=true EXPO_NO_TELEMETRY=1 expo start --no-dev --minify",
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
     "build:web": "expo export --platform web",
     "lint": "expo lint"
