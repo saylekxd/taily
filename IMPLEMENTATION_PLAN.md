@@ -62,25 +62,25 @@ CREATE POLICY "Users can create their own personalized stories"
 ### Backend Implementation
 
 #### Step 1.2: Create AI Service Configuration
-- [ ] Add environment variables for AI service (Gemini 2.5 as free model)
-- [ ] Create `services/aiStoryService.ts`
+- [X] Add environment variables for AI service (Gemini 2.5 as free model)
+- [X] Create `services/aiStoryService.ts`
   - Configure AI client
   - Implement story generation function
   - Add error handling and retries
 
 #### Step 1.3: Story Generation Logic
-- [ ] Create story generation prompt template
+- [X] Create story generation prompt template
   - Include child's name, age, interests
   - Define story structure (beginning, middle, end)
   - Set appropriate content guidelines
-- [ ] Implement story validation
+- [X] Implement story validation
   - Check content appropriateness
   - Verify story length
   - Ensure child's name is properly integrated
   - Add limits - 2 stories for each user
 
 #### Step 1.4: Story Service Updates
-- [ ] Update `services/storyService.ts`
+- [X] Update `services/storyService.ts`
   - Add `generatePersonalizedStory()` function
   - Add `getPersonalizedStories()` function
   - Integrate with existing story display logic
@@ -88,23 +88,23 @@ CREATE POLICY "Users can create their own personalized stories"
 ### Frontend Implementation
 
 #### Step 1.5: UI Components
-- [ ] Create "Generate New Story" button in profile or main (as a one container)
-- [ ] Add loading state during generation
-- [ ] Create personalized story badge/indicator
-- [ ] Update StoryCard component to show personalized indicator
+- [X] Create "Generate New Story" button in profile or main (as a one container)
+- [X] Add loading state during generation
+- [X] Create personalized story badge/indicator
+- [X] Update StoryCard component to show personalized indicator
 
 #### Step 1.6: Navigation Flow
-- [ ] Add generation screen/modal
-- [ ] Show theme/topic selection options
-- [ ] Display generation progress
-- [ ] Navigate to story view on completion
+- [X] Add generation screen/modal
+- [X] Show theme/topic selection options
+- [X] Display generation progress
+- [X] Navigate to story view on completion
 
 ### Testing Checklist
-- [ ] Test story generation with various profile combinations
-- [ ] Verify child's name appears naturally in stories
-- [ ] Check age-appropriate content
-- [ ] Test error handling for API failures
-- [ ] Verify RLS policies work correctly
+- [X] Test story generation with various profile combinations
+- [X] Verify child's name appears naturally in stories
+- [X] Check age-appropriate content
+- [X] Test error handling for API failures
+- [X] Verify RLS policies work correctly
 
 ---
 
