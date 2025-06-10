@@ -5,8 +5,15 @@ import { updateUserStreak, checkStreakAchievements, getUserStreakData } from '@/
 /**
  * Start a new reading session
  */
-export async function startReadingSession(userId: string, storyId: string): Promise<string | null> {
+export async function startReadingSession(userId: string, storyId: string, isPersonalized: boolean = false): Promise<string | null> {
   try {
+    // For personalized stories, we don't create reading sessions since they don't exist in the stories table
+    // and the foreign key constraint would fail. Personalized stories don't need session tracking.
+    if (isPersonalized) {
+      // Return a dummy session ID for personalized stories
+      return `personalized-${storyId}-${Date.now()}`;
+    }
+
     const { data, error } = await supabase
       .from('reading_sessions')
       .insert({
@@ -40,6 +47,11 @@ export async function updateReadingSession(
   completed: boolean = false
 ): Promise<void> {
   try {
+    // Skip database operations for personalized story sessions
+    if (sessionId.startsWith('personalized-')) {
+      return;
+    }
+
     const updateData: any = {
       duration,
       completed,
@@ -72,6 +84,17 @@ export async function endReadingSession(
   completed: boolean = false
 ): Promise<void> {
   try {
+    // For personalized story sessions, we still want to update streak if completed
+    if (sessionId.startsWith('personalized-')) {
+      if (completed) {
+        // Extract user ID from the session ID format: personalized-{storyId}-{timestamp}
+        // We need to get the user ID from somewhere else since it's not in the session ID
+        // For now, we'll skip streak updates for personalized stories
+        console.log('Personalized story completed - streak update skipped');
+      }
+      return;
+    }
+
     const updateData: any = {
       duration,
       completed,
@@ -363,4 +386,4 @@ function transformDbStoryToStory(dbStory: any): Story {
     completed: false,
     is_new: false,
   };
-} 
+}

@@ -98,8 +98,8 @@ export default function StoryScreen() {
             });
           }
           
-          // Start a new reading session
-          const sessionId = await startReadingSession(user.id, id);
+          // Start a new reading session - pass isPersonalized flag
+          const sessionId = await startReadingSession(user.id, id, personalized === 'true');
           if (isMountedRef.current) {
             setCurrentSessionId(sessionId);
           }
