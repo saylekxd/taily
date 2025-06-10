@@ -39,10 +39,9 @@ export default function SignInScreen() {
 
     if (signInError) {
       setError(signInError.message);
-      setLoading(false);
-    } else {
-      // Navigation is handled by the auth state change
     }
+    // Always reset loading state - navigation is handled by auth state change
+    setLoading(false);
   };
 
   return (

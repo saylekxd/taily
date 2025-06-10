@@ -67,6 +67,36 @@ export default function RootLayout() {
       };
 
       checkAuthState();
+
+      // Listen for auth state changes
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (event === 'SIGNED_IN' && session) {
+            try {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('onboarding_completed')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (profile?.onboarding_completed) {
+                router.replace('/(tabs)');
+              } else {
+                router.replace('/onboarding');
+              }
+            } catch (error) {
+              console.error('Error checking profile after sign in:', error);
+              router.replace('/onboarding');
+            }
+          } else if (event === 'SIGNED_OUT') {
+            router.replace('/auth/sign-in');
+          }
+        }
+      );
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
   }, [fontsLoaded, router]);
 
