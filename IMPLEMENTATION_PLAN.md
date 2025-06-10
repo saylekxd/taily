@@ -30,7 +30,7 @@ Generate personalized stories for each child based on their profile data (name, 
 ### Database Schema Changes
 
 #### Step 1.1: Create personalized_stories table
-- [ ] Create migration for new table structure
+- [X] Create migration for new table structure
 ```sql
 CREATE TABLE personalized_stories (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
