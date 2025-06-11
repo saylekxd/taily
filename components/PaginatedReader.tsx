@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  Dimensions, 
   TouchableOpacity,
   Modal,
   StatusBar,
-  PanGestureHandler,
-  State,
+  Platform
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  useAnimatedGestureHandler,
-  withSpring,
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring, 
   runOnJS,
+  useAnimatedGestureHandler
 } from 'react-native-reanimated';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
-import { useI18n } from '@/hooks/useI18n';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -34,51 +33,49 @@ interface PaginatedReaderProps {
 
 interface Page {
   type: 'title' | 'content';
-  text: string;
+  content: string;
   pageNumber: number;
 }
+
+const WORDS_PER_PAGE = 150;
 
 export default function PaginatedReader({
   visible,
   onClose,
   title,
   content,
-  onProgressUpdate,
+  onProgressUpdate
 }: PaginatedReaderProps) {
-  const { t } = useI18n();
+  const insets = useSafeAreaInsets();
   const [pages, setPages] = useState<Page[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const translateX = useSharedValue(0);
 
   // Split content into pages
   useEffect(() => {
-    if (!content || !title) return;
+    if (!content) return;
 
-    const wordsPerPage = 150; // Adjust based on screen size and font
     const words = content.split(' ');
     const contentPages: Page[] = [];
-
+    
     // Add title page
     contentPages.push({
       type: 'title',
-      text: title,
-      pageNumber: 1,
+      content: title,
+      pageNumber: 1
     });
 
     // Split content into chunks
-    for (let i = 0; i < words.length; i += wordsPerPage) {
-      const pageWords = words.slice(i, i + wordsPerPage);
-      const pageText = pageWords.join(' ');
-      
+    for (let i = 0; i < words.length; i += WORDS_PER_PAGE) {
+      const pageWords = words.slice(i, i + WORDS_PER_PAGE);
       contentPages.push({
         type: 'content',
-        text: pageText,
-        pageNumber: contentPages.length + 1,
+        content: pageWords.join(' '),
+        pageNumber: contentPages.length + 1
       });
     }
 
     setPages(contentPages);
-    setCurrentPageIndex(0);
   }, [content, title]);
 
   // Update progress when page changes
@@ -101,24 +98,24 @@ export default function PaginatedReader({
     }
   };
 
-  // Gesture handler for swipe navigation
   const gestureHandler = useAnimatedGestureHandler({
-    onStart: (_, context: any) => {
-      context.startX = translateX.value;
+    onStart: () => {
+      translateX.value = 0;
     },
-    onActive: (event, context) => {
-      translateX.value = context.startX + event.translationX;
+    onActive: (event) => {
+      translateX.value = event.translationX;
     },
     onEnd: (event) => {
-      const shouldGoNext = event.translationX < -screenWidth * 0.3 && event.velocityX < -500;
-      const shouldGoPrevious = event.translationX > screenWidth * 0.3 && event.velocityX > 500;
-
-      if (shouldGoNext) {
-        runOnJS(goToNextPage)();
-      } else if (shouldGoPrevious) {
+      const threshold = screenWidth * 0.3;
+      
+      if (event.translationX > threshold) {
+        // Swipe right - go to previous page
         runOnJS(goToPreviousPage)();
+      } else if (event.translationX < -threshold) {
+        // Swipe left - go to next page
+        runOnJS(goToNextPage)();
       }
-
+      
       translateX.value = withSpring(0);
     },
   });
@@ -133,101 +130,97 @@ export default function PaginatedReader({
     if (page.type === 'title') {
       return (
         <View style={styles.titlePage}>
-          <View style={styles.titleDecorationTop} />
-          <Text style={styles.titleText}>{page.text}</Text>
-          <View style={styles.titleDecorationBottom} />
-          <Text style={styles.swipeHint}>
-            {t('reader.swipeToStart')}
-          </Text>
+          <View style={styles.decorativeLine} />
+          <Text style={styles.titleText}>{page.content}</Text>
+          <View style={styles.decorativeLine} />
+          <Text style={styles.swipeHint}>Przesuwaj w prawo i czytaj na głos 👉</Text>
         </View>
       );
     }
 
     return (
       <View style={styles.contentPage}>
-        <Text style={styles.contentText}>{page.text}</Text>
+        <Text style={styles.contentText}>{page.content}</Text>
       </View>
     );
   };
 
-  if (!visible || pages.length === 0) return null;
+  if (!visible || pages.length === 0) {
+    return null;
+  }
 
   const currentPage = pages[currentPageIndex];
-  const totalPages = pages.length;
 
   return (
     <Modal
       visible={visible}
-      animationType="fade"
-      statusBarTranslucent
+      animationType="slide"
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <StatusBar hidden />
-      <GestureHandlerRootView style={styles.container}>
-        <View style={styles.background}>
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <X size={24} color={colors.white} />
-            </TouchableOpacity>
-            
-            <View style={styles.pageIndicator}>
-              <Text style={styles.pageText}>
-                {currentPageIndex + 1} / {totalPages}
-              </Text>
+      <View style={[styles.container, { paddingTop: Platform.OS === 'web' ? 0 : insets.top }]}>
+        <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <ChevronLeft size={24} color={colors.white} />
+          </TouchableOpacity>
+          
+          <Text style={styles.pageCounter}>
+            {currentPageIndex + 1} / {pages.length}
+          </Text>
+          
+          <TouchableOpacity style={styles.recordButton}>
+            <Text style={styles.recordButtonText}>NAGRYWAJ</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.headerRight}>
+            <View style={styles.micIcon}>
+              <View style={styles.micDot} />
             </View>
-
-            <View style={styles.headerSpacer} />
-          </View>
-
-          {/* Content */}
-          <PanGestureHandler onGestureEvent={gestureHandler}>
-            <Animated.View style={[styles.pageContainer, animatedStyle]}>
-              {renderPage(currentPage)}
-            </Animated.View>
-          </PanGestureHandler>
-
-          {/* Navigation */}
-          <View style={styles.navigation}>
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                currentPageIndex === 0 && styles.navButtonDisabled,
-              ]}
-              onPress={goToPreviousPage}
-              disabled={currentPageIndex === 0}
-            >
-              <ChevronLeft 
-                size={24} 
-                color={currentPageIndex === 0 ? colors.textSecondary : colors.white} 
-              />
-            </TouchableOpacity>
-
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill, 
-                  { width: `${((currentPageIndex + 1) / totalPages) * 100}%` }
-                ]} 
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                currentPageIndex === pages.length - 1 && styles.navButtonDisabled,
-              ]}
-              onPress={goToNextPage}
-              disabled={currentPageIndex === pages.length - 1}
-            >
-              <ChevronRight 
-                size={24} 
-                color={currentPageIndex === pages.length - 1 ? colors.textSecondary : colors.white} 
-              />
-            </TouchableOpacity>
+            <Text style={styles.fontSizeButton}>A A</Text>
           </View>
         </View>
-      </GestureHandlerRootView>
+
+        {/* Content */}
+        <PanGestureHandler onGestureEvent={gestureHandler}>
+          <Animated.View style={[styles.pageContainer, animatedStyle]}>
+            {renderPage(currentPage)}
+          </Animated.View>
+        </PanGestureHandler>
+
+        {/* Navigation Arrows */}
+        {currentPageIndex > 0 && (
+          <TouchableOpacity 
+            style={[styles.navButton, styles.leftNavButton]}
+            onPress={goToPreviousPage}
+          >
+            <ChevronLeft size={32} color={colors.white} />
+          </TouchableOpacity>
+        )}
+
+        {currentPageIndex < pages.length - 1 && (
+          <TouchableOpacity 
+            style={[styles.navButton, styles.rightNavButton]}
+            onPress={goToNextPage}
+          >
+            <ChevronRight size={32} color={colors.white} />
+          </TouchableOpacity>
+        )}
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { width: `${((currentPageIndex + 1) / pages.length) * 100}%` }
+              ]} 
+            />
+          </View>
+        </View>
+      </View>
     </Modal>
   );
 }
@@ -235,39 +228,68 @@ export default function PaginatedReader({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  background: {
-    flex: 1,
     backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    height: 60,
   },
   closeButton: {
     padding: 8,
   },
-  pageIndicator: {
+  pageCounter: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 16,
+    color: colors.white,
     backgroundColor: colors.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
   },
-  pageText: {
+  recordButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  recordButtonText: {
     fontFamily: 'Nunito-Bold',
     fontSize: 14,
     color: colors.white,
   },
-  headerSpacer: {
-    width: 40,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  micIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  micDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.white,
+  },
+  fontSizeButton: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 16,
+    color: colors.white,
   },
   pageContainer: {
     flex: 1,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
   },
   titlePage: {
     flex: 1,
@@ -275,38 +297,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 40,
   },
-  titleDecorationTop: {
+  decorativeLine: {
     width: 200,
     height: 2,
     backgroundColor: colors.primary,
-    marginBottom: 40,
-    borderRadius: 1,
+    marginVertical: 20,
   },
   titleText: {
     fontFamily: 'Nunito-ExtraBold',
-    fontSize: 36,
+    fontSize: 48,
     color: colors.white,
     textAlign: 'center',
-    lineHeight: 44,
-    marginBottom: 40,
-  },
-  titleDecorationBottom: {
-    width: 200,
-    height: 2,
-    backgroundColor: colors.primary,
-    marginBottom: 60,
-    borderRadius: 1,
+    lineHeight: 56,
   },
   swipeHint: {
     fontFamily: 'Nunito-Regular',
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
+    position: 'absolute',
+    bottom: 100,
+    left: 0,
+    right: 0,
   },
   contentPage: {
     flex: 1,
-    justifyContent: 'center',
-    paddingVertical: 40,
+    justifyContent: 'flex-start',
+    paddingTop: 40,
   },
   contentText: {
     fontFamily: 'Quicksand-Medium',
@@ -315,26 +332,34 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     textAlign: 'left',
   },
-  navigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 20,
-  },
   navButton: {
-    padding: 12,
+    position: 'absolute',
+    top: '50%',
+    transform: [{ translateY: -25 }],
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  navButtonDisabled: {
-    opacity: 0.3,
+  leftNavButton: {
+    left: 16,
+  },
+  rightNavButton: {
+    right: 16,
+  },
+  progressContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
   },
   progressBar: {
-    flex: 1,
     height: 4,
-    backgroundColor: colors.cardLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 2,
-    marginHorizontal: 20,
-    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
