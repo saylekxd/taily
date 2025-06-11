@@ -80,15 +80,6 @@ export default function StoryScreen() {
   
   // Note: Speech synthesis is now handled within StoryControls component
   
-
-
-
-
-
-
-
-
-
   const revertReading = async () => {
     // Reset progress to beginning
     if (isMountedRef.current) {
@@ -134,11 +125,15 @@ export default function StoryScreen() {
     }
   };
 
-
-
   const shareStory = () => {
     // Implement share functionality
     console.log('Share story:', story?.title);
+  };
+
+  const handleProgressUpdate = (newProgress: number) => {
+    if (isMountedRef.current) {
+      setProgress(newProgress);
+    }
   };
 
   if (loading || !story) {
@@ -183,6 +178,8 @@ export default function StoryScreen() {
         onToggleFavorite={toggleFavorite}
         onShare={shareStory}
         storyContent={story.content}
+        storyTitle={story.title}
+        onProgressUpdate={handleProgressUpdate}
       />
       
       {/* Completion Message */}

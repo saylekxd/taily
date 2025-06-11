@@ -133,6 +133,9 @@
     "deleteStoryConfirm": "Are you sure you want to delete this personalized story? This action cannot be undone.",
     "deleteStoryError": "Failed to delete story. Please try again."
   },
+  "reader": {
+    "swipeToStart": "Swipe right to start reading 👉"
+  },
   "generator": {
     "createPersonalizedStory": "Create Personalized Story",
     "storyWillFeature": "Your story will feature:",

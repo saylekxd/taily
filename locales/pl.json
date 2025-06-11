@@ -133,6 +133,9 @@
     "deleteStoryConfirm": "Czy na pewno chcesz usunąć tę spersonalizowaną historię? Tej akcji nie można cofnąć.",
     "deleteStoryError": "Nie udało się usunąć historii. Spróbuj ponownie."
   },
+  "reader": {
+    "swipeToStart": "Przesuń w prawo i czytaj na głos 👉"
+  },
   "generator": {
     "createPersonalizedStory": "Utwórz Spersonalizowaną Historię",
     "storyWillFeature": "Twoja historia będzie przedstawiać:",

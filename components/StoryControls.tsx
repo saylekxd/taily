@@ -7,12 +7,15 @@ import {
   Share2,
   RotateCcw,
   Volume2,
-  Mic
+  Mic,
+  BookOpen
 } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { audioService, AudioUsage } from '@/services/audioService';
 import { useUser } from '@/hooks/useUser';
+import { useI18n } from '@/hooks/useI18n';
+import PaginatedReader from './PaginatedReader';
 
 interface StoryControlsProps {
   storyId?: string;
@@ -22,7 +25,9 @@ interface StoryControlsProps {
   onRevertReading: () => void;
   onToggleFavorite: () => void;
   onShare: () => void;
-  storyContent?: string; // For AI audio generation
+  storyContent?: string;
+  storyTitle?: string;
+  onProgressUpdate?: (progress: number) => void;
 }
 
 export default function StoryControls({
@@ -34,13 +39,17 @@ export default function StoryControls({
   onToggleFavorite,
   onShare,
   storyContent,
+  storyTitle,
+  onProgressUpdate,
 }: StoryControlsProps) {
   const [usage, setUsage] = useState<AudioUsage | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
   const [userLanguage, setUserLanguage] = useState<'en' | 'pl'>('en');
+  const [showPaginatedReader, setShowPaginatedReader] = useState(false);
 
   const { profile } = useUser();
+  const { t } = useI18n();
 
   const audioPlayer = useAudioPlayer({
     storyId,
@@ -134,6 +143,14 @@ export default function StoryControls({
     }
   };
 
+  const handleOpenPaginatedReader = () => {
+    if (!storyContent || !storyTitle) {
+      Alert.alert('Error', 'Story content not available for reading mode.');
+      return;
+    }
+    setShowPaginatedReader(true);
+  };
+
   const renderAudioButton = () => {
     if (isPersonalized) {
       // For personalized stories
@@ -225,6 +242,14 @@ export default function StoryControls({
       )}
 
       <View style={styles.controlsContainer}>
+        {/* Paginated Reading Button */}
+        <TouchableOpacity 
+          style={styles.controlButton} 
+          onPress={handleOpenPaginatedReader}
+        >
+          <BookOpen size={24} color={colors.white} />
+        </TouchableOpacity>
+
         {/* Audio Control Button */}
         {renderAudioButton()}
         
@@ -256,6 +281,15 @@ export default function StoryControls({
           <Text style={styles.errorText}>{audioPlayer.error}</Text>
         </View>
       )}
+
+      {/* Paginated Reader Modal */}
+      <PaginatedReader
+        visible={showPaginatedReader}
+        onClose={() => setShowPaginatedReader(false)}
+        title={storyTitle || ''}
+        content={storyContent || ''}
+        onProgressUpdate={onProgressUpdate}
+      />
     </View>
   );
 }
@@ -331,4 +365,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
-}); 
+});
