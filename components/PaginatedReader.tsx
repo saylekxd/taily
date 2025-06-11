@@ -20,6 +20,7 @@ import Animated, {
 import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useI18n } from '@/hooks/useI18n';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -37,7 +38,8 @@ interface Page {
   pageNumber: number;
 }
 
-const WORDS_PER_PAGE = 150;
+// Reduced words per page for better readability
+const WORDS_PER_PAGE = 80;
 
 export default function PaginatedReader({
   visible,
@@ -47,15 +49,16 @@ export default function PaginatedReader({
   onProgressUpdate
 }: PaginatedReaderProps) {
   const insets = useSafeAreaInsets();
+  const { t } = useI18n();
   const [pages, setPages] = useState<Page[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const translateX = useSharedValue(0);
 
-  // Split content into pages
+  // Split content into pages with better formatting
   useEffect(() => {
     if (!content) return;
 
-    const words = content.split(' ');
+    const sentences = content.split(/[.!?]+/).filter(s => s.trim().length > 0);
     const contentPages: Page[] = [];
     
     // Add title page
@@ -65,12 +68,33 @@ export default function PaginatedReader({
       pageNumber: 1
     });
 
-    // Split content into chunks
-    for (let i = 0; i < words.length; i += WORDS_PER_PAGE) {
-      const pageWords = words.slice(i, i + WORDS_PER_PAGE);
+    // Group sentences into pages
+    let currentPageContent = '';
+    let wordCount = 0;
+
+    for (const sentence of sentences) {
+      const sentenceWords = sentence.trim().split(' ').length;
+      
+      if (wordCount + sentenceWords > WORDS_PER_PAGE && currentPageContent.length > 0) {
+        // Create a new page
+        contentPages.push({
+          type: 'content',
+          content: currentPageContent.trim(),
+          pageNumber: contentPages.length + 1
+        });
+        currentPageContent = sentence.trim() + '.';
+        wordCount = sentenceWords;
+      } else {
+        currentPageContent += (currentPageContent ? ' ' : '') + sentence.trim() + '.';
+        wordCount += sentenceWords;
+      }
+    }
+
+    // Add the last page if there's remaining content
+    if (currentPageContent.trim().length > 0) {
       contentPages.push({
         type: 'content',
-        content: pageWords.join(' '),
+        content: currentPageContent.trim(),
         pageNumber: contentPages.length + 1
       });
     }
@@ -126,6 +150,24 @@ export default function PaginatedReader({
     };
   });
 
+  const formatContentWithParagraphs = (text: string) => {
+    // Split into paragraphs and format with proper spacing
+    const paragraphs = text.split(/\n\n|\. [A-Z]/).filter(p => p.trim().length > 0);
+    
+    return paragraphs.map((paragraph, index) => {
+      // Add period back if it was removed during split
+      const formattedParagraph = paragraph.trim();
+      const needsPeriod = !formattedParagraph.endsWith('.') && !formattedParagraph.endsWith('!') && !formattedParagraph.endsWith('?');
+      
+      return (
+        <Text key={index} style={styles.paragraph}>
+          {index > 0 && formattedParagraph.match(/^[A-Z]/) ? formattedParagraph : formattedParagraph}
+          {needsPeriod ? '.' : ''}
+        </Text>
+      );
+    });
+  };
+
   const renderPage = (page: Page) => {
     if (page.type === 'title') {
       return (
@@ -133,14 +175,16 @@ export default function PaginatedReader({
           <View style={styles.decorativeLine} />
           <Text style={styles.titleText}>{page.content}</Text>
           <View style={styles.decorativeLine} />
-          <Text style={styles.swipeHint}>Przesuwaj w prawo i czytaj na głos 👉</Text>
+          <Text style={styles.swipeHint}>{t('reader.swipeToStart')}</Text>
         </View>
       );
     }
 
     return (
       <View style={styles.contentPage}>
-        <Text style={styles.contentText}>{page.content}</Text>
+        <View style={styles.contentContainer}>
+          {formatContentWithParagraphs(page.content)}
+        </View>
       </View>
     );
   };
@@ -323,14 +367,23 @@ const styles = StyleSheet.create({
   contentPage: {
     flex: 1,
     justifyContent: 'flex-start',
-    paddingTop: 40,
+    paddingTop: 60,
+    paddingBottom: 80,
+    width: '100%',
   },
-  contentText: {
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 20,
+  },
+  paragraph: {
     fontFamily: 'Quicksand-Medium',
-    fontSize: 20,
+    fontSize: 24,
     color: colors.white,
-    lineHeight: 32,
+    lineHeight: 38,
     textAlign: 'left',
+    marginBottom: 24,
+    letterSpacing: 0.5,
   },
   navButton: {
     position: 'absolute',
