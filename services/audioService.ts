@@ -273,43 +273,6 @@ class AudioService {
   }
 
   /**
-   * Update user's language preference
-   */
-  async updateLanguagePreference(language: 'en' | 'pl'): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ preferred_language: language })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error updating language preference:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get user's language preference
-   */
-  async getUserLanguagePreference(): Promise<'en' | 'pl'> {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('preferred_language')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      if (error) throw error;
-      return data?.preferred_language || 'en';
-    } catch (error) {
-      console.error('Error getting language preference:', error);
-      return 'en';
-    }
-  }
-
-  /**
    * Check if story has audio available in specified language
    */
   async hasStoryAudio(storyId: string, language: 'en' | 'pl' = 'en'): Promise<boolean> {

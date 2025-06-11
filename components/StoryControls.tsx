@@ -7,12 +7,12 @@ import {
   Share2,
   RotateCcw,
   Volume2,
-  Languages,
   Mic
 } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { audioService, AudioUsage } from '@/services/audioService';
+import { useUser } from '@/hooks/useUser';
 
 interface StoryControlsProps {
   storyId?: string;
@@ -35,33 +35,36 @@ export default function StoryControls({
   onShare,
   storyContent,
 }: StoryControlsProps) {
-  const [language, setLanguage] = useState<'en' | 'pl'>('en');
   const [usage, setUsage] = useState<AudioUsage | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
+  const [userLanguage, setUserLanguage] = useState<'en' | 'pl'>('en');
+
+  const { profile } = useUser();
 
   const audioPlayer = useAudioPlayer({
     storyId,
     personalizedStoryId,
-    language,
+    language: userLanguage,
   });
 
-  // Load user language preference and usage on mount
+  // Load user language from profile and check audio availability
   useEffect(() => {
-    loadUserPreferences();
-    checkAudioAvailability();
+    loadUserLanguageFromProfile();
     if (isPersonalized) {
       loadUsage();
     }
-  }, [storyId, personalizedStoryId, language]);
+  }, [profile]);
 
-  const loadUserPreferences = async () => {
-    try {
-      const userLanguage = await audioService.getUserLanguagePreference();
-      setLanguage(userLanguage);
-    } catch (error) {
-      console.error('Error loading user preferences:', error);
-    }
+  // Check audio availability when language changes
+  useEffect(() => {
+    checkAudioAvailability();
+  }, [storyId, personalizedStoryId, userLanguage]);
+
+  const loadUserLanguageFromProfile = () => {
+    // Get language from user profile, fallback to 'en'
+    const language = profile?.language || 'en';
+    setUserLanguage(language);
   };
 
   const loadUsage = async () => {
@@ -76,17 +79,6 @@ export default function StoryControls({
   const checkAudioAvailability = async () => {
     const available = await audioPlayer.isAudioAvailable();
     setHasAudio(available);
-  };
-
-  const handleLanguageToggle = async () => {
-    const newLanguage = language === 'en' ? 'pl' : 'en';
-    setLanguage(newLanguage);
-    
-    // Update user preference
-    await audioService.updateLanguagePreference(newLanguage);
-    
-    // Check if audio is available in new language
-    await checkAudioAvailability();
   };
 
   const handleGenerateAudio = async () => {
@@ -236,14 +228,6 @@ export default function StoryControls({
         {/* Audio Control Button */}
         {renderAudioButton()}
         
-        {/* Language Toggle (only for regular stories with audio) */}
-        {!isPersonalized && hasAudio && (
-          <TouchableOpacity style={styles.controlButton} onPress={handleLanguageToggle}>
-            <Languages size={24} color={colors.white} />
-            <Text style={styles.languageText}>{language.toUpperCase()}</Text>
-          </TouchableOpacity>
-        )}
-        
         {/* Revert Reading Button */}
         <TouchableOpacity style={styles.controlButton} onPress={onRevertReading}>
           <RotateCcw size={24} color={colors.white} />
@@ -337,13 +321,6 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
-  },
-  languageText: {
-    position: 'absolute',
-    bottom: -2,
-    fontSize: 8,
-    color: colors.white,
-    fontWeight: 'bold',
   },
   errorContainer: {
     paddingHorizontal: 24,
