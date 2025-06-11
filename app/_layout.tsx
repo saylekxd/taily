@@ -16,6 +16,7 @@ import { SplashScreen } from 'expo-router';
 import { AppProvider } from '@/context/AppContext';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -105,25 +106,27 @@ export default function RootLayout() {
   }
 
   return (
-    <AppProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ 
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
-        animation: 'fade',
-      }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-        <Stack.Screen name="story/[id]" options={{ 
-          headerShown: true, 
-          headerTitle: '',
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.white,
-          presentation: 'modal'
-        }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-    </AppProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AppProvider>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ 
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+          animation: 'fade',
+        }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="auth" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+          <Stack.Screen name="story/[id]" options={{ 
+            headerShown: true, 
+            headerTitle: '',
+            headerStyle: { backgroundColor: colors.background },
+            headerTintColor: colors.white,
+            presentation: 'modal'
+          }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </AppProvider>
+    </GestureHandlerRootView>
   );
 }
