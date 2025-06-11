@@ -10,7 +10,7 @@ import StoryHeader from '@/components/StoryHeader';
 import StoryContent from '@/components/StoryContent';
 import StoryControls from '@/components/StoryControls';
 import CompletionBanner from '@/components/CompletionBanner';
-import DetailedReaderView from '@/components/DetailedReaderView';
+import DetailedReaderView from '@/components/DetailedReaderView/index';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
@@ -151,6 +151,8 @@ export default function StoryScreen() {
 
   const closeDetailedReader = () => {
     setShowDetailedReader(false);
+    // Trigger auto-scroll to the current progress position in the main story view
+    setShouldScrollToProgress(true);
   };
 
   const handleDetailedReaderProgressChange = (newProgress: number) => {
