@@ -7,7 +7,8 @@ import {
   Share2,
   RotateCcw,
   Volume2,
-  Mic
+  Mic,
+  Eye
 } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
@@ -22,6 +23,7 @@ interface StoryControlsProps {
   onRevertReading: () => void;
   onToggleFavorite: () => void;
   onShare: () => void;
+  onOpenDetailedReader: () => void;
   storyContent?: string; // For AI audio generation
 }
 
@@ -33,6 +35,7 @@ export default function StoryControls({
   onRevertReading,
   onToggleFavorite,
   onShare,
+  onOpenDetailedReader,
   storyContent,
 }: StoryControlsProps) {
   const [usage, setUsage] = useState<AudioUsage | null>(null);
@@ -227,6 +230,11 @@ export default function StoryControls({
       <View style={styles.controlsContainer}>
         {/* Audio Control Button */}
         {renderAudioButton()}
+        
+        {/* Detailed Reader Button */}
+        <TouchableOpacity style={styles.controlButton} onPress={onOpenDetailedReader}>
+          <Eye size={24} color={colors.white} />
+        </TouchableOpacity>
         
         {/* Revert Reading Button */}
         <TouchableOpacity style={styles.controlButton} onPress={onRevertReading}>

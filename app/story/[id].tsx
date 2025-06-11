@@ -10,6 +10,7 @@ import StoryHeader from '@/components/StoryHeader';
 import StoryContent from '@/components/StoryContent';
 import StoryControls from '@/components/StoryControls';
 import CompletionBanner from '@/components/CompletionBanner';
+import DetailedReaderView from '@/components/DetailedReaderView';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
@@ -26,6 +27,9 @@ export default function StoryScreen() {
   const router = useRouter();
   const { user } = useUser();
   const { t } = useI18n();
+  
+  // Detailed reader state
+  const [showDetailedReader, setShowDetailedReader] = useState(false);
   
   // Use the extracted story data hook
   const {
@@ -141,6 +145,18 @@ export default function StoryScreen() {
     console.log('Share story:', story?.title);
   };
 
+  const openDetailedReader = () => {
+    setShowDetailedReader(true);
+  };
+
+  const closeDetailedReader = () => {
+    setShowDetailedReader(false);
+  };
+
+  const handleDetailedReaderProgressChange = (newProgress: number) => {
+    setProgress(newProgress);
+  };
+
   if (loading || !story) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -182,6 +198,7 @@ export default function StoryScreen() {
         onRevertReading={revertReading}
         onToggleFavorite={toggleFavorite}
         onShare={shareStory}
+        onOpenDetailedReader={openDetailedReader}
         storyContent={story.content}
       />
       
@@ -189,6 +206,16 @@ export default function StoryScreen() {
       <CompletionBanner
         isCompleted={isCompleted}
         completionText="🎉 Story completed!"
+      />
+
+      {/* Detailed Reader View */}
+      <DetailedReaderView
+        visible={showDetailedReader}
+        onClose={closeDetailedReader}
+        content={story.content || ''}
+        title={story.title || ''}
+        progress={progress}
+        onProgressChange={handleDetailedReaderProgressChange}
       />
     </View>
   );

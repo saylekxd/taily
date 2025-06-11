@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { AuthUser as User, AuthSession, AuthChangeEvent } from '@supabase/gotrue-js';
+import type { User, Session } from '@supabase/supabase-js';
+import { ReadingSettings } from '@/types';
 
 type Profile = {
   id: string;
@@ -14,6 +15,7 @@ type Profile = {
   total_reading_time: number;
   onboarding_completed: boolean;
   created_at: string;
+  reading_settings?: ReadingSettings;
 };
 
 export function useUser() {
@@ -58,7 +60,7 @@ export function useUser() {
 
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: AuthSession | null) => {
+      async (event, session: Session | null) => {
         if (session?.user) {
           setUser(session.user);
           const userProfile = await loadProfile(session.user.id);

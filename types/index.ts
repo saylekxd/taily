@@ -23,6 +23,16 @@ export interface StoryTemplate {
   reading_time: number;
 }
 
+// Reading Settings types
+export type FontSize = 'small' | 'medium' | 'large' | 'xlarge' | 'xxlarge';
+export type ColorTheme = 'dark' | 'light' | 'sepia' | 'high-contrast';
+
+export interface ReadingSettings {
+  font_size: FontSize;
+  color_theme: ColorTheme;
+  fullscreen_mode: boolean;
+}
+
 // User types
 export interface UserProfile {
   id: string;
@@ -35,6 +45,7 @@ export interface UserProfile {
   total_stories_read: number;
   total_reading_time: number;
   onboarding_completed: boolean;
+  reading_settings?: ReadingSettings;
 }
 
 // Reading Session types

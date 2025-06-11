@@ -131,7 +131,20 @@
     "personalized": "Spersonalizowana",
     "deleteStory": "Usuń Historię",
     "deleteStoryConfirm": "Czy na pewno chcesz usunąć tę spersonalizowaną historię? Tej akcji nie można cofnąć.",
-    "deleteStoryError": "Nie udało się usunąć historii. Spróbuj ponownie."
+    "deleteStoryError": "Nie udało się usunąć historii. Spróbuj ponownie.",
+    "detailedReader": "Szczegółowy Czytelnik",
+    "openDetailedReader": "Otwórz Szczegółowy Czytelnik",
+    "accessibleReading": "Dostępne Czytanie",
+    "textSize": "Rozmiar Tekstu",
+    "theme": "Motyw",
+    "fullscreenMode": "Tryb Pełnoekranowy",
+    "exitFullscreen": "Wyjdź z Pełnego Ekranu",
+    "readingSettings": "Ustawienia Czytania",
+    "adjustTextAndTheme": "Stuknij ustawienia, aby dostosować rozmiar tekstu i motyw dla lepszego czytania",
+    "darkTheme": "Ciemny",
+    "lightTheme": "Jasny", 
+    "sepiaTheme": "Sepia",
+    "highContrastTheme": "Wysoki Kontrast"
   },
   "generator": {
     "createPersonalizedStory": "Utwórz Spersonalizowaną Historię",

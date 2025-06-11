@@ -131,7 +131,20 @@
     "personalized": "Personalized",
     "deleteStory": "Delete Story",
     "deleteStoryConfirm": "Are you sure you want to delete this personalized story? This action cannot be undone.",
-    "deleteStoryError": "Failed to delete story. Please try again."
+    "deleteStoryError": "Failed to delete story. Please try again.",
+    "detailedReader": "Detailed Reader",
+    "openDetailedReader": "Open Detailed Reader",
+    "accessibleReading": "Accessible Reading",
+    "textSize": "Text Size",
+    "theme": "Theme",
+    "fullscreenMode": "Fullscreen Mode",
+    "exitFullscreen": "Exit Fullscreen",
+    "readingSettings": "Reading Settings",
+    "adjustTextAndTheme": "Tap settings to adjust text size and theme for better reading",
+    "darkTheme": "Dark",
+    "lightTheme": "Light",
+    "sepiaTheme": "Sepia",
+    "highContrastTheme": "High Contrast"
   },
   "generator": {
     "createPersonalizedStory": "Create Personalized Story",
