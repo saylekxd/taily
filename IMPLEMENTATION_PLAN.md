@@ -306,14 +306,88 @@ serve(async (req) => {
 ## Feature 3: Interactive Reading with Sound Effects
 
 ### Overview
-Add microphone listening during parent reading to trigger sound effects at specific words.
+Add microphone listening during parent reading to trigger sound effects at specific words. The modular DetailedReaderView component structure has been refactored to support this feature.
 
-### Permissions & Setup
+### ✅ Completed: Component Architecture Preparation
+
+The DetailedReaderView has been refactored into a modular structure that's ready for Feature 3 implementation:
+
+#### Completed Component Structure
+```
+components/DetailedReaderView/
+├── index.tsx                    # ✅ Main component orchestrator
+├── types.ts                     # ✅ Type definitions (including Feature 3 types)
+├── constants.ts                 # ✅ Font sizes, line heights, and color themes
+├── components/
+│   ├── ReaderHeader.tsx         # ✅ Header with title and settings button
+│   ├── SettingsPanel.tsx        # ✅ Font size, theme, and fullscreen controls
+│   ├── ReaderContent.tsx        # ✅ Story content with scroll handling (prepared for word highlighting)
+│   ├── FullscreenControls.tsx   # ✅ Fullscreen mode overlay controls
+│   └── InteractiveControls.tsx  # ✅ Interactive reading UI controls (placeholder implementation)
+└── hooks/
+    ├── useReaderSettings.ts     # ✅ Settings management and persistence
+    ├── useReaderScroll.ts       # ✅ Scroll behavior and progress tracking
+    └── useInteractiveReading.ts # ✅ Interactive reading state management (placeholder)
+```
+
+#### Completed Type Definitions
+```typescript
+// Already defined in types.ts
+export interface InteractiveReadingState {
+  isListening: boolean;
+  isEnabled: boolean;
+  recognizedWords: string[];
+  currentWord: string | null;
+  soundEffectsEnabled: boolean;
+}
+
+export interface InteractiveControlsProps {
+  state: InteractiveReadingState;
+  onToggleListening: () => void;
+  onToggleInteractiveMode: () => void;
+  onToggleSoundEffects: () => void;
+  colorTheme: ColorThemeStyle;
+}
+
+export interface WordHighlight {
+  word: string;
+  position: number;
+  soundEffect?: string;
+}
+
+export interface ReaderContentProps {
+  // ... existing props
+  isInteractiveMode?: boolean;
+  highlightedWords?: string[];
+  onWordSpoken?: (word: string) => void;
+}
+```
+
+#### Completed UI Components
+- ✅ **InteractiveControls.tsx**: Microphone toggle, sound effects toggle, status indicators
+- ✅ **ReaderContent.tsx**: Prepared for word highlighting with placeholder rendering logic
+- ✅ **useInteractiveReading.ts**: State management structure ready for speech recognition
+
+### 🔧 Implementation Required
 
 #### Step 3.1: Audio Permissions
 - [ ] Add microphone permissions to app.json
-- [ ] Create permission request flow
-- [ ] Handle permission denial gracefully
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for interactive reading."
+        }
+      ]
+    ]
+  }
+}
+```
+- [ ] Update InteractiveControls.tsx to request microphone permissions
+- [ ] Handle permission denial gracefully in useInteractiveReading.ts
 
 #### Step 3.2: Database Schema
 - [ ] Create sound effects mapping table
@@ -343,57 +417,126 @@ CREATE TABLE story_sound_mappings (
 
 #### Step 3.3: Speech Recognition Service
 - [ ] Create `services/speechRecognitionService.ts`
-  - Initialize speech recognition
+  - Initialize speech recognition with expo-speech
   - Real-time word detection
-  - Word matching algorithm
-  - Performance optimization
+  - Word matching algorithm against story content
+  - Performance optimization for continuous listening
 
 #### Step 3.4: Sound Effects Service
 - [ ] Create `services/soundEffectsService.ts`
-  - Preload common sound effects
-  - Play sound effects with low latency
-  - Manage audio context
+  - Preload common sound effects from Supabase Storage
+  - Play sound effects with low latency using expo-av
+  - Manage audio context and prevent conflicts with voice narration
   - Handle multiple simultaneous sounds
 
 #### Step 3.5: Story Analysis Service
-- [ ] Create word-to-sound mapping logic
-  - Analyze story text for trigger words
-  - Generate position mappings
-  - Handle word variations (plural, tense)
+- [ ] Create `services/storyAnalysisService.ts`
+  - Analyze story text for trigger words (animals, actions, emotions)
+  - Generate position mappings for word highlighting
+  - Handle word variations (plural, tense, case-insensitive)
+  - Cache analysis results for performance
 
-### Frontend Implementation
+### Enhanced Frontend Implementation
 
-#### Step 3.6: Interactive Reading Mode UI
-- [ ] Add "Interactive Reading" toggle
-- [ ] Show microphone status indicator
-- [ ] Highlight trigger words in text
-- [ ] Add visual feedback when sound plays
+#### Step 3.6: Complete useInteractiveReading.ts Hook
+- [ ] Implement speech recognition integration
+```typescript
+// Update useInteractiveReading.ts
+const toggleListening = async () => {
+  if (!interactiveState.isListening) {
+    // Request microphone permission
+    // Start speech recognition
+    // Begin word detection
+  } else {
+    // Stop speech recognition
+    // Clean up resources
+  }
+};
 
-#### Step 3.7: Real-time Processing
-- [ ] Implement `hooks/useInteractiveReading.ts`
-  - Start/stop listening
-  - Process speech in real-time
-  - Trigger sound effects
-  - Sync with story progress
+const onWordRecognized = (word: string) => {
+  // Match against story trigger words
+  // Trigger sound effect
+  // Update highlighting
+  // Add to recognized words array
+};
+```
 
-#### Step 3.8: Sound Effect Library
-- [ ] Create sound effect management screen
-  - Preview available sounds
+#### Step 3.7: Enhance ReaderContent.tsx Word Highlighting
+- [ ] Implement word highlighting in renderContent()
+```typescript
+// Update ReaderContent.tsx renderContent method
+const renderContent = () => {
+  if (isInteractiveMode && highlightedWords.length > 0) {
+    // Split content into words
+    // Apply highlighting styles to trigger words
+    // Add onPress handlers for manual word triggering
+    // Return JSX with highlighted text spans
+  }
+  // ... existing implementation
+};
+```
+
+#### Step 3.8: Sound Effect Management
+- [ ] Create sound effect library management
+  - Preview available sounds in settings
   - Enable/disable specific effects
-  - Volume control per effect
+  - Volume control per effect type
+  - Sound effect categories (animals, actions, nature, etc.)
+
+### Integration Points
+
+#### Ready Integration Areas
+1. **InteractiveControls.tsx**: Update placeholder functions with real implementation
+2. **useInteractiveReading.ts**: Replace placeholder state management with speech recognition
+3. **ReaderContent.tsx**: Implement word highlighting in existing renderContent method
+4. **Main Story Flow**: Interactive mode already integrated in DetailedReaderView/index.tsx
+
+#### Dependencies to Add
+```json
+{
+  "dependencies": {
+    "expo-av": "~14.0.7",
+    "expo-speech": "~12.0.2",
+    "@react-native-voice/voice": "^3.2.4"
+  }
+}
+```
 
 ### Performance Optimization
-- [ ] Implement audio buffer pool
-- [ ] Optimize speech recognition sampling rate
-- [ ] Add debouncing for rapid word detection
-- [ ] Memory management for long sessions
+- [ ] Implement audio buffer pool for sound effects
+- [ ] Optimize speech recognition sampling rate (16kHz recommended)
+- [ ] Add debouncing for rapid word detection (300ms delay)
+- [ ] Memory management for long reading sessions
+- [ ] Background audio handling when switching between story audio and sound effects
 
-### Testing Checklist
-- [ ] Test speech recognition accuracy
-- [ ] Verify sound effect timing
+### Testing Strategy
+
+#### Component Testing (Ready)
+- [ ] Test InteractiveControls.tsx in isolation
+- [ ] Test word highlighting in ReaderContent.tsx
+- [ ] Test state management in useInteractiveReading.ts
+- [ ] Test settings persistence integration
+
+#### Integration Testing
+- [ ] Test speech recognition accuracy with different voices
+- [ ] Verify sound effect timing and overlap handling
 - [ ] Test with different reading speeds
 - [ ] Check performance on older devices
-- [ ] Test with background noise
+- [ ] Test with background noise and various environments
+
+### Implementation Benefits of Modular Structure
+
+1. **Isolated Development**: Each component can be developed and tested independently
+2. **Progressive Enhancement**: Feature can be enabled/disabled without affecting existing functionality  
+3. **Clean Integration**: Existing DetailedReaderView flow remains unchanged
+4. **Easy Testing**: Components have clear interfaces and single responsibilities
+5. **Future Scalability**: Structure supports additional interactive features
+
+### Implementation Order
+1. **Phase 1**: Complete speech recognition service and permissions
+2. **Phase 2**: Implement word highlighting and sound effect playback
+3. **Phase 3**: Add sound effect management and optimization
+4. **Phase 4**: Performance tuning and user testing
 
 ---
 
