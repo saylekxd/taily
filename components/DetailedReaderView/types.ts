@@ -57,7 +57,7 @@ export interface ReaderContentProps {
   onScrollStateChange: (state: Partial<ScrollState>) => void;
   isFullscreen: boolean;
   scrollViewRef: RefObject<ScrollView | null>;
-  // Future Feature 3 props
+  // Feature 3 props
   isInteractiveMode?: boolean;
   highlightedWords?: string[];
   onWordSpoken?: (word: string) => void;
@@ -69,7 +69,7 @@ export interface FullscreenControlsProps {
   onClose: () => void;
 }
 
-// Future Feature 3 types
+// Feature 3 types
 export interface InteractiveReadingState {
   isListening: boolean;
   isEnabled: boolean;
@@ -90,4 +90,4 @@ export interface WordHighlight {
   word: string;
   position: number;
   soundEffect?: string;
-} 
+}

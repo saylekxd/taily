@@ -22,7 +22,8 @@
     "sending": "Wysyłanie...",
     "welcomeToStoryTime": "Witaj w StoryTime!",
     "enterName": "Wpisz imię",
-    "delete": "Usuń"
+    "delete": "Usuń",
+    "dismiss": "Odrzuć"
   },
   "profile": {
     "title": "Profil",
@@ -144,7 +145,16 @@
     "darkTheme": "Ciemny",
     "lightTheme": "Jasny", 
     "sepiaTheme": "Sepia",
-    "highContrastTheme": "Wysoki Kontrast"
+    "highContrastTheme": "Wysoki Kontrast",
+    "interactiveReading": "Interaktywne Czytanie",
+    "enableInteractiveReading": "Włącz Interaktywne Czytanie",
+    "interactiveReadingDescription": "Wypowiadaj słowa kluczowe na głos, aby usłyszeć efekty dźwiękowe podczas czytania!",
+    "listening": "Słucham",
+    "soundsMuted": "Dźwięki Wyciszone",
+    "speakTriggerWords": "Wypowiadaj podświetlone słowa, aby wywołać efekty dźwiękowe",
+    "tapMicrophoneToStart": "Stuknij mikrofon, aby rozpocząć słuchanie",
+    "interactiveNotSupported": "Interaktywne czytanie nie jest obsługiwane na tym urządzeniu",
+    "interactiveNotSupportedWeb": "Interaktywne czytanie wymaga dostępu do mikrofonu. Proszę zezwolić na dostęp do mikrofonu w przeglądarce."
   },
   "generator": {
     "createPersonalizedStory": "Utwórz Spersonalizowaną Historię",

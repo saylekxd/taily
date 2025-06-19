@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { ReaderContentProps } from '../types';
 import { fontSizes, lineHeights } from '../constants';
+import { storyAnalysisService } from '@/services/storyAnalysisService';
+import { colors } from '@/constants/colors';
 
 export default function ReaderContent({
   content,
@@ -13,25 +15,63 @@ export default function ReaderContent({
   onScrollStateChange,
   isFullscreen,
   scrollViewRef,
-  // Future Feature 3 props
+  // Feature 3 props
   isInteractiveMode = false,
   highlightedWords = [],
   onWordSpoken,
 }: ReaderContentProps) {
   
-  // This function will be enhanced for Feature 3 to highlight specific words
+  // Enhanced content rendering with word highlighting for Feature 3
   const renderContent = () => {
-    if (isInteractiveMode && highlightedWords.length > 0) {
-      // TODO: Implement word highlighting for Feature 3
-      // This will split content into words and highlight trigger words
+    if (isInteractiveMode && content) {
+      // Analyze the story content to find trigger words
+      const analysis = storyAnalysisService.analyzeStoryContent(content);
+      const segments = storyAnalysisService.highlightTriggerWords(content, analysis.triggerWords);
+      
       return (
-        <Text style={[styles.content, {
-          color: colorTheme.text,
-          fontSize: fontSizes[settings.fontSize],
-          lineHeight: lineHeights[settings.fontSize],
-        }]}>
-          {content}
-        </Text>
+        <View>
+          {segments.map((segment, index) => {
+            if (segment.isHighlighted && segment.word) {
+              return (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => onWordSpoken?.(segment.word!)}
+                  style={styles.highlightedWordContainer}
+                >
+                  <Text
+                    style={[
+                      styles.content,
+                      styles.highlightedWord,
+                      {
+                        color: colorTheme.text,
+                        fontSize: fontSizes[settings.fontSize],
+                        lineHeight: lineHeights[settings.fontSize],
+                      }
+                    ]}
+                  >
+                    {segment.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            } else {
+              return (
+                <Text
+                  key={index}
+                  style={[
+                    styles.content,
+                    {
+                      color: colorTheme.text,
+                      fontSize: fontSizes[settings.fontSize],
+                      lineHeight: lineHeights[settings.fontSize],
+                    }
+                  ]}
+                >
+                  {segment.text}
+                </Text>
+              );
+            }
+          })}
+        </View>
       );
     }
 
@@ -90,6 +130,15 @@ export default function ReaderContent({
     >
       {renderContent()}
       
+      {/* Interactive mode indicator */}
+      {isInteractiveMode && (
+        <View style={[styles.interactiveModeIndicator, { backgroundColor: colorTheme.card }]}>
+          <Text style={[styles.interactiveModeText, { color: colorTheme.text }]}>
+            🎤 Interactive reading mode active - speak highlighted words for sound effects!
+          </Text>
+        </View>
+      )}
+      
       {/* Spacer to allow full scroll */}
       <View style={styles.endSpacer} />
     </ScrollView>
@@ -108,18 +157,35 @@ const styles = StyleSheet.create({
     fontFamily: 'Quicksand-Medium',
     textAlign: 'left',
   },
-  // Future styles for Feature 3
+  highlightedWordContainer: {
+    display: 'inline-block' as any, // For web compatibility
+  },
   highlightedWord: {
     backgroundColor: 'rgba(255, 215, 0, 0.3)', // Golden highlight
     borderRadius: 2,
-    paddingHorizontal: 1,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
   },
   activeWord: {
     backgroundColor: 'rgba(255, 69, 0, 0.5)', // Orange for currently spoken word
     borderRadius: 2,
-    paddingHorizontal: 1,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+  },
+  interactiveModeIndicator: {
+    marginTop: 20,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  interactiveModeText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   endSpacer: {
     height: 60,
   },
-}); 
+});

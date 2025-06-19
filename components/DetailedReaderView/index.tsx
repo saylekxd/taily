@@ -68,11 +68,15 @@ export default function DetailedReaderView({
 
   const {
     interactiveState,
+    triggerWords,
+    error: interactiveError,
+    isAvailable: isInteractiveAvailable,
     toggleListening,
     toggleInteractiveMode,
     toggleSoundEffects,
     onWordRecognized,
-  } = useInteractiveReading();
+    clearError,
+  } = useInteractiveReading(content);
 
   // Handle instructions banner
   React.useEffect(() => {
@@ -163,6 +167,9 @@ export default function DetailedReaderView({
           onToggleInteractiveMode={toggleInteractiveMode}
           onToggleSoundEffects={toggleSoundEffects}
           colorTheme={currentTheme}
+          error={interactiveError}
+          isAvailable={isInteractiveAvailable}
+          onClearError={clearError}
         />
 
         {/* Content */}
@@ -232,4 +239,4 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-}); 
+});

@@ -16,6 +16,7 @@
     "@lucide/lab": "^0.1.2",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
+    "@react-native-voice/voice": "^3.2.4",
     "@supabase/gotrue-js": "^2.70.0",
     "@supabase/postgrest-js": "^1.6.1",
     "@supabase/supabase-js": "^2.50.0",
