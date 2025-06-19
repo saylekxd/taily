@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { Mic, MicOff, Volume2, VolumeX, Play, Pause, AlertCircle } from 'lucide-react-native';
+import { Mic, MicOff, Volume2, VolumeX, Play, Pause, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { useI18n } from '@/hooks/useI18n';
 import { colors } from '@/constants/colors';
 import { InteractiveControlsProps } from '../types';
