@@ -32,11 +32,15 @@ class SpeechRecognitionService {
       return;
     }
 
-    Voice.onSpeechStart = this.onSpeechStart;
-    Voice.onSpeechEnd = this.onSpeechEnd;
-    Voice.onSpeechError = this.onSpeechError;
-    Voice.onSpeechResults = this.onSpeechResults;
-    Voice.onSpeechPartialResults = this.onSpeechPartialResults;
+    try {
+      Voice.onSpeechStart = this.onSpeechStart;
+      Voice.onSpeechEnd = this.onSpeechEnd;
+      Voice.onSpeechError = this.onSpeechError;
+      Voice.onSpeechResults = this.onSpeechResults;
+      Voice.onSpeechPartialResults = this.onSpeechPartialResults;
+    } catch (error) {
+      console.error('Failed to initialize Voice library:', error);
+    }
   }
 
   private onSpeechStart = () => {
@@ -95,9 +99,14 @@ class SpeechRecognitionService {
       }
 
       // Check if Voice is available
-      const available = await Voice.isAvailable();
-      if (!available) {
-        throw new Error('Speech recognition not available on this device');
+      try {
+        const available = await Voice.isAvailable();
+        if (!available) {
+          throw new Error('Speech recognition not available on this device');
+        }
+      } catch (error) {
+        console.error('Voice.isAvailable() failed:', error);
+        throw new Error('Speech recognition service unavailable');
       }
 
       return true;
@@ -132,13 +141,7 @@ class SpeechRecognitionService {
         ...config,
       };
 
-      await Voice.start(defaultConfig.language, {
-        RECOGNIZER_ENGINE: 'GOOGLE',
-        EXTRA_LANGUAGE_MODEL: 'LANGUAGE_MODEL_FREE_FORM',
-        EXTRA_CALLING_PACKAGE: 'com.example.app',
-        EXTRA_PARTIAL_RESULTS: defaultConfig.interimResults,
-        REQUEST_PERMISSIONS_AUTO: true,
-      });
+      await Voice.start(defaultConfig.language);
 
       this.isListening = true;
       return true;
@@ -245,7 +248,12 @@ class SpeechRecognitionService {
       }
 
       if (Platform.OS !== 'web') {
-        await Voice.destroy();
+        try {
+          await Voice.destroy();
+        } catch (error) {
+          console.error('Voice.destroy() failed:', error);
+          // Continue with cleanup even if Voice.destroy() fails
+        }
       }
 
       // Clear callbacks
