@@ -8,7 +8,8 @@ import {
   Image,
   Dimensions,
   FlatList,
-  Alert
+  Alert,
+  Button
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -24,6 +25,7 @@ import { getDailyStory } from '@/services/dailyStoryService';
 import { getUserPersonalizedStories, deletePersonalizedStory, getUserStoryLimitInfo } from '@/services/personalizedStoryService';
 import { Story } from '@/types';
 import { PersonalizedStory } from '@/services/personalizedStoryService';
+import * as Sentry from '@sentry/react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -129,6 +131,13 @@ export default function HomeScreen() {
           {t('home.welcomeBack', { name: profile?.child_name || t('profile.explorer') })}
         </Text>
       </View>
+
+    <Button title='Try!' onPress={ () => { 
+      console.log('Button pressed - sending error to Sentry...');
+      Sentry.captureException(new Error('First error'));
+      console.log('Error sent to Sentry successfully!');
+      alert('Error sent to Sentry! Check your Sentry dashboard.');
+    }}/>
 
       {/* Personalized Stories Section */}
       <View style={styles.sectionContainer}>

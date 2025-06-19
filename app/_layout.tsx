@@ -17,11 +17,28 @@ import { AppProvider } from '@/context/AppContext';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://4d9815c1684b31ba7afbaf3f7c81ddad@o4508910073348096.ingest.de.sentry.io/4509524948156496',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   useFrameworkReady();
   const router = useRouter();
 
@@ -129,4 +146,4 @@ export default function RootLayout() {
       </AppProvider>
     </GestureHandlerRootView>
   );
-}
+});
