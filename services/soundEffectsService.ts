@@ -27,7 +27,7 @@ class SoundEffectsService {
 
     try {
       await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
+        allowsRecordingIOS: true,
         staysActiveInBackground: false,
         playsInSilentModeIOS: true,
         shouldDuckAndroid: true,
