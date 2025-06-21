@@ -157,11 +157,13 @@
     "interactiveNotSupportedWeb": "Interactive reading requires microphone access. Please allow microphone permissions in your browser."
   },
   "generator": {
-    "createPersonalizedStory": "Create Personalized Story",
+    "createPersonalizedStory": "Create AI Story",
     "storyWillFeature": "Your story will feature:",
     "chooseTheme": "Choose a theme",
     "basedOnInterests": "Based on your interests",
-    "storiesRemaining": "{{remaining}} of {{total}} stories remaining",
+    "storiesRemaining": "{{remaining}} left",
+    "storiesUsed": "stories used",
+    "limitReached": "Limit Reached",
     "storyPreview": "Story Preview",
     "storyWillBeAbout": "{{name}} will go on an amazing {{theme}} adventure!",
     "selectThemeToSeePreview": "Select a theme to see what your story will be about",

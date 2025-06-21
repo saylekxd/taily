@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronRight, Sparkles } from 'lucide-react-native';
+import { ChevronRight, Sparkles, Wand2, Plus } from 'lucide-react-native';
 import StoryCard from '@/components/StoryCard';
 import PersonalizedStoryCard from '@/components/PersonalizedStoryCard';
 import PersonalizedStoryGenerator from '@/components/PersonalizedStoryGenerator';
@@ -132,32 +132,98 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-    <Button title='Try!' onPress={ () => { 
-      console.log('Button pressed - sending error to Sentry...');
-      Sentry.captureException(new Error('First error'));
-      console.log('Error sent to Sentry successfully!');
-      alert('Error sent to Sentry! Check your Sentry dashboard.');
-    }}/>
+      <Button title='Try!' onPress={ () => { 
+        console.log('Button pressed - sending error to Sentry...');
+        Sentry.captureException(new Error('First error'));
+        console.log('Error sent to Sentry successfully!');
+        alert('Error sent to Sentry! Check your Sentry dashboard.');
+      }}/>
 
-      {/* Personalized Stories Section */}
+      {/* AI Personalized Stories Creation Button */}
       <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Sparkles size={20} color={colors.accent} />
-            <Text style={styles.sectionTitle}>{t('home.yourPersonalizedStories')}</Text>
+        <TouchableOpacity 
+          style={[
+            styles.aiStoryCreationCard,
+            !limitInfo.canGenerate && styles.aiStoryCreationCardDisabled
+          ]}
+          onPress={() => limitInfo.canGenerate && setShowGenerator(true)}
+          disabled={!limitInfo.canGenerate}
+        >
+          <View style={styles.aiStoryCreationContent}>
+            <View style={styles.aiStoryCreationLeft}>
+              <View style={styles.aiStoryIconContainer}>
+                <Wand2 size={32} color={colors.white} />
+              </View>
+              <View style={styles.aiStoryTextContainer}>
+                <Text style={styles.aiStoryTitle}>
+                  {t('generator.createPersonalizedStory')}
+                </Text>
+                <Text style={styles.aiStorySubtitle}>
+                  {profile?.child_name 
+                    ? t('generator.storyWillBeAbout', { 
+                        name: profile.child_name, 
+                        theme: 'adventure' 
+                      })
+                    : t('generator.selectThemeToSeePreview')
+                  }
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.aiStoryCreationRight}>
+              <View style={styles.storiesCounterContainer}>
+                <Text style={styles.storiesCounterNumber}>
+                  {limitInfo.maxCount - limitInfo.currentCount}
+                </Text>
+                <Text style={styles.storiesCounterLabel}>
+                  {t('generator.storiesRemaining', { 
+                    remaining: limitInfo.maxCount - limitInfo.currentCount,
+                    total: limitInfo.maxCount 
+                  })}
+                </Text>
+              </View>
+              
+              {limitInfo.canGenerate ? (
+                <View style={styles.createButtonContainer}>
+                  <Plus size={20} color={colors.white} />
+                </View>
+              ) : (
+                <View style={styles.createButtonDisabled}>
+                  <Text style={styles.createButtonDisabledText}>
+                    {t('generator.limitReached')}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-          {limitInfo.canGenerate && (
-            <TouchableOpacity 
-              style={styles.createStoryButton}
-              onPress={() => setShowGenerator(true)}
-            >
-              <Sparkles size={16} color={colors.white} />
-              <Text style={styles.createStoryText}>{t('home.createNew')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        
-        {personalizedStories.length > 0 ? (
+          
+          {/* Progress bar showing usage */}
+          <View style={styles.usageProgressContainer}>
+            <View style={styles.usageProgressBar}>
+              <View 
+                style={[
+                  styles.usageProgressFill,
+                  { width: `${(limitInfo.currentCount / limitInfo.maxCount) * 100}%` }
+                ]}
+              />
+            </View>
+            <Text style={styles.usageProgressText}>
+              {limitInfo.currentCount} / {limitInfo.maxCount} {t('generator.storiesUsed')}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Existing Personalized Stories Section */}
+      {personalizedStories.length > 0 && (
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Sparkles size={20} color={colors.accent} />
+              <Text style={styles.sectionTitle}>{t('home.yourPersonalizedStories')}</Text>
+            </View>
+          </View>
+          
           <ScrollView 
             horizontal 
             showsHorizontalScrollIndicator={false}
@@ -174,23 +240,8 @@ export default function HomeScreen() {
               </View>
             ))}
           </ScrollView>
-        ) : (
-          <View style={styles.emptyPersonalizedContainer}>
-            <Sparkles size={48} color={colors.accent} />
-            <Text style={styles.emptyPersonalizedTitle}>{t('home.noPersonalizedStories')}</Text>
-            <Text style={styles.emptyPersonalizedSubtitle}>{t('home.createFirstPersonalizedStory')}</Text>
-            {limitInfo.canGenerate && (
-              <TouchableOpacity 
-                style={styles.createFirstStoryButton}
-                onPress={() => setShowGenerator(true)}
-              >
-                <Sparkles size={16} color={colors.white} />
-                <Text style={styles.createFirstStoryText}>{t('home.createYourFirstStory')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Daily Story */}
       {dailyStory && (
@@ -335,56 +386,122 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginLeft: 8,
   },
-  createStoryButton: {
-    backgroundColor: colors.accent,
+  // AI Story Creation Card Styles
+  aiStoryCreationCard: {
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  aiStoryCreationCardDisabled: {
+    backgroundColor: colors.border,
+    opacity: 0.6,
+  },
+  aiStoryCreationContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  createStoryText: {
-    fontFamily: 'Nunito-Bold',
-    fontSize: 12,
-    color: colors.white,
-    marginLeft: 4,
-  },
-  emptyPersonalizedContainer: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 32,
+  aiStoryCreationLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    flex: 1,
   },
-  emptyPersonalizedTitle: {
-    fontFamily: 'Nunito-Bold',
+  aiStoryIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  aiStoryTextContainer: {
+    flex: 1,
+  },
+  aiStoryTitle: {
+    fontFamily: 'Nunito-ExtraBold',
     fontSize: 18,
     color: colors.white,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  emptyPersonalizedSubtitle: {
+  aiStorySubtitle: {
     fontFamily: 'Nunito-Regular',
     fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
+    color: 'rgba(255, 255, 255, 0.8)',
+    lineHeight: 20,
   },
-  createFirstStoryButton: {
-    backgroundColor: colors.accent,
-    flexDirection: 'row',
+  aiStoryCreationRight: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    marginLeft: 16,
   },
-  createFirstStoryText: {
-    fontFamily: 'Nunito-Bold',
-    fontSize: 14,
+  storiesCounterContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  storiesCounterNumber: {
+    fontFamily: 'Nunito-ExtraBold',
+    fontSize: 32,
     color: colors.white,
-    marginLeft: 8,
+    lineHeight: 36,
   },
+  storiesCounterLabel: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    maxWidth: 80,
+  },
+  createButtonContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createButtonDisabled: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  createButtonDisabledText: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+  },
+  usageProgressContainer: {
+    marginTop: 8,
+  },
+  usageProgressBar: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  usageProgressFill: {
+    height: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 3,
+  },
+  usageProgressText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+  },
+  // Existing styles
   noDailyStoryContainer: {
     backgroundColor: colors.card,
     borderRadius: 16,
