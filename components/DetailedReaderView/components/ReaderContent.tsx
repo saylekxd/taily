@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { ReaderContentProps } from '../types';
 import { fontSizes, lineHeights } from '../constants';
 import { storyAnalysisService } from '@/services/storyAnalysisService';
+import { soundEffectsService } from '@/services/soundEffectsService';
 import { colors } from '@/constants/colors';
 
 export default function ReaderContent({
@@ -19,17 +20,58 @@ export default function ReaderContent({
   isInteractiveMode = false,
   highlightedWords = [],
   onWordSpoken,
+  // Story identification props
+  storyId,
+  personalizedStoryId,
 }: ReaderContentProps) {
   
-  // Enhanced content rendering with word highlighting for Feature 3
-  const renderContent = () => {
-    if (isInteractiveMode && content) {
-      // Use a simple approach for now - we'll enhance this when the story analysis is ready
-      // Since analyzeStoryContent is now async, we can't call it directly in render
-      // The trigger words are already available from the parent component
+  const [triggerWords, setTriggerWords] = useState<string[]>([]);
+  const [isLoadingTriggerWords, setIsLoadingTriggerWords] = useState(false);
+
+  // Load trigger words when component mounts or story changes
+  useEffect(() => {
+    if (isInteractiveMode) {
+      loadTriggerWords();
+    }
+  }, [isInteractiveMode, storyId, personalizedStoryId]);
+
+  const loadTriggerWords = async () => {
+    setIsLoadingTriggerWords(true);
+    try {
+      console.log('🔊 Loading trigger words for story:', { storyId, personalizedStoryId });
       
-      // For now, let's use a simpler highlighting approach based on common trigger words
-      const commonTriggerWords = [
+      const words = new Set<string>();
+      
+      // First, get general trigger words from sound_effect_triggers table
+      const generalEffects = await soundEffectsService.getAllSoundEffects();
+      generalEffects.forEach(effect => {
+        words.add(effect.word.toLowerCase());
+      });
+      
+      console.log('🔊 Loaded general trigger words:', generalEffects.length, 'words');
+      
+      // Then, get story-specific mappings if we have a story ID
+      if (storyId || personalizedStoryId) {
+        const storyMappings = await soundEffectsService.getSoundEffectsForStory(
+          storyId || personalizedStoryId!,
+          !!personalizedStoryId
+        );
+        
+        storyMappings.forEach(mapping => {
+          words.add(mapping.word.toLowerCase());
+        });
+        
+        console.log('🔊 Loaded story-specific mappings:', storyMappings.length, 'mappings');
+      }
+      
+      const finalTriggerWords = Array.from(words);
+      setTriggerWords(finalTriggerWords);
+      
+      console.log('🔊 Final trigger words loaded:', finalTriggerWords.length, 'total words:', finalTriggerWords);
+    } catch (error) {
+      console.error('🔊 Error loading trigger words:', error);
+      // Fallback to hardcoded words if database fails
+      const fallbackWords = [
         'roar', 'roared', 'roaring',
         'meow', 'meowed', 'meowing', 
         'woof', 'woofed', 'bark', 'barked', 'barking',
@@ -39,9 +81,18 @@ export default function ReaderContent({
         'wind', 'windy', 'whoosh', 'whooshed',
         'magic', 'magical', 'sparkle', 'sparkled', 'sparkling'
       ];
-
+      setTriggerWords(fallbackWords);
+      console.log('🔊 Using fallback trigger words:', fallbackWords.length, 'words');
+    } finally {
+      setIsLoadingTriggerWords(false);
+    }
+  };
+  
+  // Enhanced content rendering with word highlighting for Feature 3
+  const renderContent = () => {
+    if (isInteractiveMode && content && triggerWords.length > 0) {
       // Create a regex to find and highlight trigger words
-      const pattern = new RegExp(`\\b(${commonTriggerWords.join('|')})\\b`, 'gi');
+      const pattern = new RegExp(`\\b(${triggerWords.join('|')})\\b`, 'gi');
       const parts = content.split(pattern);
       
       return (
@@ -51,7 +102,7 @@ export default function ReaderContent({
           lineHeight: lineHeights[settings.fontSize],
         }]}>
           {parts.map((part, index) => {
-            const isHighlighted = commonTriggerWords.some(word => 
+            const isHighlighted = triggerWords.some(word => 
               word.toLowerCase() === part.toLowerCase()
             );
             
@@ -154,7 +205,12 @@ export default function ReaderContent({
       {isInteractiveMode && (
         <View style={[styles.interactiveModeIndicator, { backgroundColor: colorTheme.card }]}>
           <Text style={[styles.interactiveModeText, { color: colorTheme.text }]}>
-            🎤 Interactive reading mode active - speak highlighted words for sound effects!
+            {isLoadingTriggerWords 
+              ? '🔄 Loading sound effects...'
+              : triggerWords.length > 0 
+                ? `🎤 Interactive reading mode active - ${triggerWords.length} sound effects available!`
+                : '🎤 Interactive reading mode active - no sound effects available.'
+            }
           </Text>
         </View>
       )}

@@ -9,6 +9,9 @@ export interface DetailedReaderViewProps {
   title: string;
   progress: number;
   onProgressChange?: (progress: number) => void;
+  // Story identification for sound effects
+  storyId?: string;
+  personalizedStoryId?: string;
 }
 
 export interface ReaderSettings {
@@ -61,6 +64,9 @@ export interface ReaderContentProps {
   isInteractiveMode?: boolean;
   highlightedWords?: string[];
   onWordSpoken?: (word: string) => void;
+  // Story identification for sound effects
+  storyId?: string;
+  personalizedStoryId?: string;
 }
 
 export interface FullscreenControlsProps {

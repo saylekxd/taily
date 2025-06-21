@@ -158,6 +158,68 @@ class SoundEffectsService {
     }
   }
 
+  async playSoundForWordInStory(
+    word: string, 
+    storyId?: string, 
+    personalizedStoryId?: string, 
+    volume: number = 0.7
+  ): Promise<boolean> {
+    console.log('🔊 SoundEffectsService.playSoundForWordInStory called with:', {
+      word, storyId, personalizedStoryId, volume
+    });
+    
+    try {
+      let soundEffectUrl: string | null = null;
+      
+      // First, check for story-specific mappings if we have a story ID
+      if (storyId || personalizedStoryId) {
+        console.log('🔊 Checking story-specific mappings...');
+        const storyMappings = await this.getSoundEffectsForStory(
+          storyId || personalizedStoryId!, 
+          !!personalizedStoryId
+        );
+        
+        // Find matching word in story mappings
+        const storyMapping = storyMappings.find(mapping => 
+          mapping.word.toLowerCase() === word.toLowerCase()
+        );
+        
+        if (storyMapping?.sound_effect_url) {
+          soundEffectUrl = storyMapping.sound_effect_url;
+          console.log('🔊 Found story-specific sound effect:', soundEffectUrl);
+        }
+      }
+      
+      // If no story-specific mapping found, fall back to general sound effects
+      if (!soundEffectUrl) {
+        console.log('🔊 No story-specific mapping found, checking general sound effects...');
+        const { data: soundEffect, error } = await supabase
+          .from('sound_effect_triggers')
+          .select('*')
+          .ilike('word', word)
+          .limit(1)
+          .single();
+
+        if (!error && soundEffect?.sound_effect_url) {
+          soundEffectUrl = soundEffect.sound_effect_url;
+          console.log('🔊 Found general sound effect:', soundEffectUrl);
+        }
+      }
+
+      // Play the sound if we found a URL
+      if (soundEffectUrl) {
+        console.log('🔊 Playing sound from URL:', soundEffectUrl);
+        return await this.playSound(soundEffectUrl, volume);
+      } else {
+        console.log(`🔊 No sound effect found for word: ${word}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`🔊 Failed to play sound for word ${word} in story:`, error);
+      return false;
+    }
+  }
+
   async getSoundEffectsForStory(storyId: string, isPersonalized: boolean = false): Promise<SoundEffectMapping[]> {
     try {
       const column = isPersonalized ? 'personalized_story_id' : 'story_id';

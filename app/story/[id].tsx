@@ -218,6 +218,8 @@ export default function StoryScreen() {
         title={story.title || ''}
         progress={progress}
         onProgressChange={handleDetailedReaderProgressChange}
+        storyId={isPersonalizedStory ? undefined : story.id}
+        personalizedStoryId={isPersonalizedStory ? story.id : undefined}
       />
     </View>
   );

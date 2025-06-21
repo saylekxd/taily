@@ -37,6 +37,8 @@ export default function DetailedReaderView({
   title,
   progress,
   onProgressChange,
+  storyId,
+  personalizedStoryId,
 }: DetailedReaderViewProps) {
   const { t } = useI18n();
   
@@ -76,7 +78,7 @@ export default function DetailedReaderView({
     toggleSoundEffects,
     onWordRecognized,
     clearError,
-  } = useInteractiveReading(content);
+  } = useInteractiveReading(content, storyId, personalizedStoryId);
 
   // Handle instructions banner
   React.useEffect(() => {
@@ -192,6 +194,8 @@ export default function DetailedReaderView({
           isInteractiveMode={interactiveState.isEnabled}
           highlightedWords={interactiveState.recognizedWords}
           onWordSpoken={onWordRecognized}
+          storyId={storyId}
+          personalizedStoryId={personalizedStoryId}
         />
 
         {/* Fullscreen controls - positioned absolutely to stay sticky */}
