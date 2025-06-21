@@ -284,5 +284,16 @@
     "night_owl": "Read a story after 8pm",
     "bookworm": "Read for more than 1 hour in a day",
     "explorer": "Read stories from 5 different categories"
+  },
+  "error": {
+    "speechRecognitionTitle": "Speech Recognition Issue",
+    "speechRecognitionTemporary": "Temporary connection issue. This will be automatically retried.",
+    "speechRecognitionRetrying": "Attempting to reconnect...",
+    "speechRecognitionRetryFailed": "Retry {{attempt}}/{{max}} failed. Still trying...",
+    "speechRecognitionPermission": "Microphone permission required. Please allow microphone access.",
+    "speechRecognitionUnsupported": "Speech recognition is not supported on this device.",
+    "speechRecognitionGeneric": "Speech recognition temporarily unavailable.",
+    "autoRetrying": "Auto-retrying in progress...",
+    "autoRetryIn": "Auto-retry in {{seconds}}s"
   }
 }

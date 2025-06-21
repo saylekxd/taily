@@ -21,7 +21,7 @@ import { colorThemes } from './constants';
 // Import hooks
 import { useReaderSettings } from './hooks/useReaderSettings';
 import { useReaderScroll } from './hooks/useReaderScroll';
-import { useInteractiveReading } from './hooks/useInteractiveReading';
+import { useInteractiveReadingWithErrorHandling } from './hooks/useInteractiveReadingWithErrorHandling';
 
 // Import components
 import ReaderHeader from './components/ReaderHeader';
@@ -29,6 +29,7 @@ import SettingsPanel from './components/SettingsPanel';
 import ReaderContent from './components/ReaderContent';
 import FullscreenControls from './components/FullscreenControls';
 import InteractiveControls from './components/InteractiveControls';
+import SpeechRecognitionErrorHandler from '@/components/ErrorHandling/SpeechRecognitionErrorHandler';
 
 export default function DetailedReaderView({
   visible,
@@ -78,7 +79,8 @@ export default function DetailedReaderView({
     toggleSoundEffects,
     onWordRecognized,
     clearError,
-  } = useInteractiveReading(content, storyId, personalizedStoryId);
+    manualRetry,
+  } = useInteractiveReadingWithErrorHandling(content, storyId, personalizedStoryId);
 
   // Handle instructions banner
   React.useEffect(() => {
@@ -168,6 +170,14 @@ export default function DetailedReaderView({
           />
         )}
 
+        {/* Speech Recognition Error Handler */}
+        <SpeechRecognitionErrorHandler
+          error={interactiveError}
+          onRetry={manualRetry}
+          onDismiss={clearError}
+          colorTheme={currentTheme}
+        />
+
         {/* Interactive Controls (Feature 3) */}
         <InteractiveControls
           state={interactiveState}
@@ -175,7 +185,7 @@ export default function DetailedReaderView({
           onToggleInteractiveMode={toggleInteractiveMode}
           onToggleSoundEffects={toggleSoundEffects}
           colorTheme={currentTheme}
-          error={interactiveError}
+          error={null} // Let the error handler above manage errors
           isAvailable={isInteractiveAvailable}
           onClearError={clearError}
         />

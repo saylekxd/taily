@@ -1,0 +1,1 @@
+export { default as SpeechRecognitionErrorHandler } from './SpeechRecognitionErrorHandler'; 
