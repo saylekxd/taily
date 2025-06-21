@@ -546,7 +546,7 @@ const renderContent = () => {
 1. Database setup
 2. AI service integration
 3. Basic generation flow
-4. UI integration
+4. UI integration.
 5. Testing & refinement
 
 ### Phase 2: Voice Read Mode (Week 3-4)
