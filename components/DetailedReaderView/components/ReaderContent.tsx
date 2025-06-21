@@ -57,25 +57,21 @@ export default function ReaderContent({
             
             if (isHighlighted) {
               return (
-                <TouchableOpacity
+                <Text
                   key={index}
+                  style={[
+                    styles.content,
+                    styles.highlightedWord,
+                    {
+                      color: colorTheme.text,
+                      fontSize: fontSizes[settings.fontSize],
+                      lineHeight: lineHeights[settings.fontSize],
+                    }
+                  ]}
                   onPress={() => onWordSpoken?.(part.toLowerCase())}
-                  style={styles.highlightedWordContainer}
                 >
-                  <Text
-                    style={[
-                      styles.content,
-                      styles.highlightedWord,
-                      {
-                        color: colorTheme.text,
-                        fontSize: fontSizes[settings.fontSize],
-                        lineHeight: lineHeights[settings.fontSize],
-                      }
-                    ]}
-                  >
-                    {part}
-                  </Text>
-                </TouchableOpacity>
+                  {part}
+                </Text>
               );
             } else {
               return (
@@ -181,20 +177,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Quicksand-Medium',
     textAlign: 'left',
   },
-  highlightedWordContainer: {
-    display: 'inline-block' as any, // For web compatibility
-  },
   highlightedWord: {
     backgroundColor: 'rgba(255, 215, 0, 0.3)', // Golden highlight
     borderRadius: 2,
     paddingHorizontal: 2,
-    paddingVertical: 1,
+    // Removed paddingVertical to maintain text baseline alignment
   },
   activeWord: {
     backgroundColor: 'rgba(255, 69, 0, 0.5)', // Orange for currently spoken word
     borderRadius: 2,
     paddingHorizontal: 2,
-    paddingVertical: 1,
+    // Removed paddingVertical to maintain text baseline alignment
   },
   interactiveModeIndicator: {
     marginTop: 20,

@@ -83,10 +83,12 @@ class SoundEffectsService {
       // Manage cache size
       if (this.soundCache.size >= this.maxCacheSize) {
         const firstKey = this.soundCache.keys().next().value;
-        const oldSound = this.soundCache.get(firstKey);
-        if (oldSound) {
-          await oldSound.unloadAsync();
-          this.soundCache.delete(firstKey);
+        if (firstKey) {
+          const oldSound = this.soundCache.get(firstKey);
+          if (oldSound) {
+            await oldSound.unloadAsync();
+            this.soundCache.delete(firstKey);
+          }
         }
       }
 
@@ -214,6 +216,36 @@ class SoundEffectsService {
     } catch (error) {
       console.error('Failed to get sound effects by category:', error);
       return [];
+    }
+  }
+
+  async getSoundEffectForWord(word: string): Promise<SoundEffect | null> {
+    try {
+      const { data: soundEffect, error } = await supabase
+        .from('sound_effect_triggers')
+        .select('*')
+        .ilike('word', word)
+        .limit(1)
+        .single();
+
+      if (error || !soundEffect) {
+        return null;
+      }
+
+      return soundEffect;
+    } catch (error) {
+      console.error(`Failed to get sound effect for word ${word}:`, error);
+      return null;
+    }
+  }
+
+  async preloadSound(url: string): Promise<boolean> {
+    try {
+      await this.loadSound(url);
+      return true;
+    } catch (error) {
+      console.error(`Failed to preload sound from ${url}:`, error);
+      return false;
     }
   }
 

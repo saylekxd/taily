@@ -21,6 +21,38 @@ export function useInteractiveReading(storyContent?: string) {
   const processedContentRef = useRef<string>('');
   const recentlyPlayedWordsRef = useRef<Map<string, number>>(new Map());
   const isActiveSessionRef = useRef<boolean>(false);
+  const triggerWordSoundsRef = useRef<Map<string, string>>(new Map()); // word -> sound_url mapping
+
+  // Preload sounds for trigger words to enable immediate playback
+  const preloadTriggerWordSounds = async (triggerWords: WordPosition[]) => {
+    console.log('🔊 Preloading sounds for trigger words...');
+    
+    try {
+      // Get sound effects for all trigger words
+      const results = await Promise.allSettled(
+        triggerWords.map(async (tw) => {
+          const soundEffect = await soundEffectsService.getSoundEffectForWord(tw.word.toLowerCase());
+          if (soundEffect?.sound_effect_url) {
+            // Store the mapping for instant lookup
+            triggerWordSoundsRef.current.set(tw.word.toLowerCase(), soundEffect.sound_effect_url);
+            
+            // Preload the sound into cache
+            await soundEffectsService.preloadSound(soundEffect.sound_effect_url);
+            
+            console.log(`🔊 Preloaded sound for word: ${tw.word}`);
+            return { word: tw.word, success: true };
+          }
+          return { word: tw.word, success: false };
+        })
+      );
+
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length;
+      const total = triggerWords.length;
+      console.log(`🔊 Preloaded ${successful}/${total} trigger word sounds`);
+    } catch (error) {
+      console.error('🔊 Failed to preload trigger word sounds:', error);
+    }
+  };
 
   // Initialize services and analyze story content
   useEffect(() => {
@@ -33,6 +65,9 @@ export function useInteractiveReading(storyContent?: string) {
           const analysis = await storyAnalysisService.analyzeStoryContent(storyContent);
           setTriggerWords(analysis.triggerWords);
           console.log('Initialized trigger words:', analysis.triggerWords.map(tw => tw.word));
+
+          // Preload sounds for all trigger words for immediate playback
+          await preloadTriggerWordSounds(analysis.triggerWords);
         }
       } catch (error) {
         console.error('Failed to initialize interactive reading services:', error);
@@ -45,6 +80,7 @@ export function useInteractiveReading(storyContent?: string) {
     // Cleanup on unmount
     return () => {
       isActiveSessionRef.current = false;
+      triggerWordSoundsRef.current.clear();
       speechRecognitionService.destroy();
       soundEffectsService.cleanup();
     };
@@ -190,19 +226,40 @@ export function useInteractiveReading(storyContent?: string) {
     }
     
     try {
-      console.log('🔊 About to call soundEffectsService.playSoundForWord');
-      const success = await soundEffectsService.playSoundForWord(word, 0.6);
+      // First check if we have a preloaded sound for immediate playback
+      const preloadedSoundUrl = triggerWordSoundsRef.current.get(word.toLowerCase());
       
-      // Check again after async operation in case session ended while waiting
-      if (!isActiveSessionRef.current) {
-        console.log('🔊 Session ended during sound operation, stopping any playback for word:', word);
-        return;
-      }
-      
-      if (success) {
-        console.log(`🔊 Successfully played sound for word: ${word}`);
+      if (preloadedSoundUrl) {
+        console.log('🔊 Using preloaded sound for immediate playback:', preloadedSoundUrl);
+        const success = await soundEffectsService.playSound(preloadedSoundUrl, 0.6);
+        
+        // Check again after async operation in case session ended while waiting
+        if (!isActiveSessionRef.current) {
+          console.log('🔊 Session ended during sound operation, stopping any playback for word:', word);
+          return;
+        }
+        
+        if (success) {
+          console.log(`🔊 Successfully played preloaded sound for word: ${word}`);
+        } else {
+          console.log(`🔊 Failed to play preloaded sound for word: ${word}`);
+        }
       } else {
-        console.log(`🔊 Failed to play sound for word: ${word}`);
+        // Fallback to database query (slower but more comprehensive)
+        console.log('🔊 No preloaded sound found, querying database...');
+        const success = await soundEffectsService.playSoundForWord(word, 0.6);
+        
+        // Check again after async operation in case session ended while waiting
+        if (!isActiveSessionRef.current) {
+          console.log('🔊 Session ended during sound operation, stopping any playback for word:', word);
+          return;
+        }
+        
+        if (success) {
+          console.log(`🔊 Successfully played sound for word: ${word}`);
+        } else {
+          console.log(`🔊 Failed to play sound for word: ${word}`);
+        }
       }
     } catch (error) {
       console.error(`🔊 Error playing sound for word ${word}:`, error);
