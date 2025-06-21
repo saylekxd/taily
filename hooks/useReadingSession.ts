@@ -73,12 +73,12 @@ export function useReadingSession(
         }
         
         lastSaveTimeRef.current = currentTime;
-        console.log('Auto-saved progress:', { 
-          progress: progressRef.current.toFixed(2), 
-          is_favorite: isFavoriteRef.current, 
-          reading_time: timeSinceLastSave,
-          completed: isCompletedRef.current 
-        });
+        // console.log('Auto-saved progress:', { 
+        //   progress: progressRef.current.toFixed(2), 
+        //   is_favorite: isFavoriteRef.current, 
+        //   reading_time: timeSinceLastSave,
+        //   completed: isCompletedRef.current 
+        // });
       } catch (error) {
         console.error('Auto-save failed:', error);
       }

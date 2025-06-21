@@ -99,27 +99,36 @@ class SoundEffectsService {
   }
 
   async playSound(url: string, volume: number = 0.7): Promise<boolean> {
+    console.log('🔊 SoundEffectsService.playSound called with URL:', url, 'volume:', volume);
+    
     try {
       if (!this.isInitialized) {
+        console.log('🔊 Service not initialized, initializing now...');
         await this.initialize();
       }
 
+      console.log('🔊 Loading sound from URL:', url);
       const sound = await this.loadSound(url);
       
+      console.log('🔊 Sound loaded, resetting position and playing...');
       // Reset position and play
       await sound.setPositionAsync(0);
       await sound.setVolumeAsync(volume);
       await sound.playAsync();
 
+      console.log('🔊 Sound played successfully');
       return true;
     } catch (error) {
-      console.error(`Failed to play sound ${url}:`, error);
+      console.error(`🔊 Failed to play sound ${url}:`, error);
       return false;
     }
   }
 
   async playSoundForWord(word: string, volume: number = 0.7): Promise<boolean> {
+    console.log('🔊 SoundEffectsService.playSoundForWord called with word:', word, 'volume:', volume);
+    
     try {
+      console.log('🔊 Querying database for sound effect...');
       const { data: soundEffect, error } = await supabase
         .from('sound_effect_triggers')
         .select('*')
@@ -127,14 +136,22 @@ class SoundEffectsService {
         .limit(1)
         .single();
 
+      console.log('🔊 Database query result:', { soundEffect, error });
+
       if (error || !soundEffect) {
-        console.log(`No sound effect found for word: ${word}`);
+        console.log(`🔊 No sound effect found for word: ${word}`);
         return false;
       }
 
+      if (!soundEffect.sound_effect_url) {
+        console.log(`🔊 Sound effect found but no URL for word: ${word}`);
+        return false;
+      }
+
+      console.log('🔊 Found sound effect, calling playSound with URL:', soundEffect.sound_effect_url);
       return await this.playSound(soundEffect.sound_effect_url, volume);
     } catch (error) {
-      console.error(`Failed to play sound for word ${word}:`, error);
+      console.error(`🔊 Failed to play sound for word ${word}:`, error);
       return false;
     }
   }

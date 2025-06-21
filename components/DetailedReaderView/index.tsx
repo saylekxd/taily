@@ -85,12 +85,18 @@ export default function DetailedReaderView({
       instructionsBannerTimeoutRef.current = setTimeout(() => {
         setShowInstructionsBanner(false);
       }, 2000);
+      
+      // Debug: Log when modal opens to check if services are working
+      console.log('DetailedReaderView opened - Interactive features available:', isInteractiveAvailable);
+      if (interactiveError) {
+        console.error('Interactive reading error:', interactiveError);
+      }
     } else {
       if (instructionsBannerTimeoutRef.current) {
         clearTimeout(instructionsBannerTimeoutRef.current);
       }
     }
-  }, [visible]);
+  }, [visible, isInteractiveAvailable, interactiveError]);
 
   // Clean up timeout on unmount
   React.useEffect(() => {

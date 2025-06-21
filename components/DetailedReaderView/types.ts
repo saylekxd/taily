@@ -84,6 +84,9 @@ export interface InteractiveControlsProps {
   onToggleInteractiveMode: () => void;
   onToggleSoundEffects: () => void;
   colorTheme: ColorThemeStyle;
+  error?: string | null;
+  isAvailable?: boolean;
+  onClearError?: () => void;
 }
 
 export interface WordHighlight {
