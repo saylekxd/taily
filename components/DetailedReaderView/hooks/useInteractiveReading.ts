@@ -143,24 +143,25 @@ export function useInteractiveReading(
       const words = normalizedSentence.split(/\s+/);
       const lastWord = words[words.length - 1].replace(/[^\w]/g, '');
       
-      // Skip if it's too short or we've already processed this exact sentence
-      if (lastWord.length < 3 || normalizedSentence === processedContentRef.current) {
+      console.log('🔍 Extracted last word:', lastWord, 'from words array:', words.slice(-3)); // Show last 3 words for debugging
+      
+      // Skip if it's too short
+      if (lastWord.length < 3) {
+        console.log('🔍 Skipping word too short:', lastWord);
         return;
       }
       
-      // Check if this is genuinely a new word (not already in our processed content)
-      const processedWords = processedContentRef.current.split(/\s+/);
-      const isNewWord = words.length > processedWords.length;
-      
-      if (!isNewWord) {
-        console.log('🔍 No new word detected');
+      // Simple check: if this exact word was processed recently, skip it
+      const lastProcessedWord = processedContentRef.current;
+      if (lastWord === lastProcessedWord) {
+        console.log('🔍 Skipping already processed word:', lastWord);
         return;
       }
 
       console.log('🔍 New word detected:', lastWord);
 
-      // Update what we've processed
-      processedContentRef.current = normalizedSentence;
+      // Update what we've processed with just the last word
+      processedContentRef.current = lastWord;
 
       // Check if it's a trigger word
       if (triggerWords.includes(lastWord)) {
