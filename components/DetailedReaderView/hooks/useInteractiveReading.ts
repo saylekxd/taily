@@ -20,6 +20,7 @@ export function useInteractiveReading(storyContent?: string) {
   // Add tracking for processed content to prevent re-processing
   const processedContentRef = useRef<string>('');
   const recentlyPlayedWordsRef = useRef<Map<string, number>>(new Map());
+  const isActiveSessionRef = useRef<boolean>(false);
 
   // Initialize services and analyze story content
   useEffect(() => {
@@ -43,6 +44,7 @@ export function useInteractiveReading(storyContent?: string) {
 
     // Cleanup on unmount
     return () => {
+      isActiveSessionRef.current = false;
       speechRecognitionService.destroy();
       soundEffectsService.cleanup();
     };
@@ -137,7 +139,8 @@ export function useInteractiveReading(storyContent?: string) {
   const handleSpeechError = (error: string) => {
     console.error('🔍 Speech recognition error:', error);
     
-    // Reset processed content on error
+    // Mark session as inactive and reset processed content on error
+    isActiveSessionRef.current = false;
     processedContentRef.current = '';
     
     setError(error);
@@ -152,6 +155,7 @@ export function useInteractiveReading(storyContent?: string) {
     
     // Reset session tracking
     processedContentRef.current = '';
+    isActiveSessionRef.current = true;
     
     setError(null);
     setInteractiveState(prev => ({
@@ -162,6 +166,9 @@ export function useInteractiveReading(storyContent?: string) {
 
   const handleSpeechEnd = () => {
     console.log('🔍 Speech recognition ended - clearing session data');
+    
+    // Mark session as inactive to prevent any pending sound operations
+    isActiveSessionRef.current = false;
     
     // Reset processed content when speech ends
     processedContentRef.current = '';
@@ -176,9 +183,22 @@ export function useInteractiveReading(storyContent?: string) {
     console.log('🔊 playTriggerWordSound called with word:', word);
     console.log('🔊 Stack trace:', new Error().stack);
     
+    // Check if session is still active before proceeding
+    if (!isActiveSessionRef.current) {
+      console.log('🔊 Session no longer active, aborting sound playback for word:', word);
+      return;
+    }
+    
     try {
       console.log('🔊 About to call soundEffectsService.playSoundForWord');
       const success = await soundEffectsService.playSoundForWord(word, 0.6);
+      
+      // Check again after async operation in case session ended while waiting
+      if (!isActiveSessionRef.current) {
+        console.log('🔊 Session ended during sound operation, stopping any playback for word:', word);
+        return;
+      }
+      
       if (success) {
         console.log(`🔊 Successfully played sound for word: ${word}`);
       } else {
@@ -192,6 +212,8 @@ export function useInteractiveReading(storyContent?: string) {
   const toggleListening = async () => {
     try {
       if (interactiveState.isListening) {
+        // Mark session as inactive when stopping
+        isActiveSessionRef.current = false;
         await speechRecognitionService.stopListening();
       } else {
         if (!interactiveState.isEnabled) {
@@ -201,6 +223,7 @@ export function useInteractiveReading(storyContent?: string) {
 
         // Reset tracking when starting to listen
         processedContentRef.current = '';
+        isActiveSessionRef.current = true;
 
         const success = await speechRecognitionService.startListening({
           language: 'en-US',
@@ -209,11 +232,13 @@ export function useInteractiveReading(storyContent?: string) {
         });
 
         if (!success) {
+          isActiveSessionRef.current = false;
           setError('Failed to start speech recognition');
         }
       }
     } catch (error) {
       console.error('Error toggling listening:', error);
+      isActiveSessionRef.current = false;
       setError(error instanceof Error ? error.message : 'Failed to toggle listening');
     }
   };
@@ -223,12 +248,16 @@ export function useInteractiveReading(storyContent?: string) {
       const newEnabled = !interactiveState.isEnabled;
       
       if (!newEnabled && interactiveState.isListening) {
-        // Stop listening when disabling interactive mode
+        // Mark session as inactive and stop listening when disabling interactive mode
+        isActiveSessionRef.current = false;
         await speechRecognitionService.stopListening();
       }
 
       // Reset tracking when toggling mode
       processedContentRef.current = '';
+      if (!newEnabled) {
+        isActiveSessionRef.current = false;
+      }
 
       setInteractiveState(prev => ({ 
         ...prev, 
@@ -242,6 +271,7 @@ export function useInteractiveReading(storyContent?: string) {
       }
     } catch (error) {
       console.error('Error toggling interactive mode:', error);
+      isActiveSessionRef.current = false;
       setError(error instanceof Error ? error.message : 'Failed to toggle interactive mode');
     }
   };
@@ -261,6 +291,12 @@ export function useInteractiveReading(storyContent?: string) {
   const onWordRecognized = (word: string) => {
     console.log('🔊 onWordRecognized called with word:', word);
     console.log('🔊 onWordRecognized stack trace:', new Error().stack);
+    
+    // Check if session is active before processing manual word recognition
+    if (!isActiveSessionRef.current) {
+      console.log('🔊 onWordRecognized skipped - session not active');
+      return;
+    }
     
     // Manual word recognition trigger (for testing or manual activation)
     if (interactiveState.soundEffectsEnabled) {
