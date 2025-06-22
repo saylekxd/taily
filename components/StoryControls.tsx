@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Text, ActivityIndicator, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text, ActivityIndicator, Alert, Share, Platform } from 'react-native';
 import { 
   Play, 
   Pause, 
@@ -14,6 +14,7 @@ import { colors } from '@/constants/colors';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { audioService, AudioUsage } from '@/services/audioService';
 import { useUser } from '@/hooks/useUser';
+import ShareButton from '@/components/ShareButton';
 
 interface StoryControlsProps {
   storyId?: string;
@@ -25,6 +26,7 @@ interface StoryControlsProps {
   onShare: () => void;
   onOpenDetailedReader: () => void;
   storyContent?: string; // For AI audio generation
+  storyTitle?: string; // For sharing
 }
 
 export default function StoryControls({
@@ -37,6 +39,7 @@ export default function StoryControls({
   onShare,
   onOpenDetailedReader,
   storyContent,
+  storyTitle,
 }: StoryControlsProps) {
   const [usage, setUsage] = useState<AudioUsage | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -253,9 +256,18 @@ export default function StoryControls({
         )}
         
         {/* Share Button */}
-        <TouchableOpacity style={styles.controlButton} onPress={onShare}>
-          <Share2 size={24} color={colors.white} />
-        </TouchableOpacity>
+        <ShareButton
+          isPersonalized={isPersonalized}
+          storyContent={storyContent}
+          storyTitle={storyTitle}
+          storyId={storyId}
+          personalizedStoryId={personalizedStoryId}
+          onShareComplete={(success) => {
+            if (success) {
+              onShare?.();
+            }
+          }}
+        />
       </View>
 
       {/* Error Display */}
