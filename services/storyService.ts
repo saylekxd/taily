@@ -444,6 +444,7 @@ function transformDbStoryToStory(dbStory: any): Story {
     cover_image: dbStory.cover_image,
     categories: dbStory.categories || [],
     reading_time: dbStory.reading_time,
+    age_range: dbStory.age_range,
     has_audio: dbStory.has_audio || false,
     // These will be set by other functions if user-specific data is available
     progress: 0,

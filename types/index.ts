@@ -6,6 +6,7 @@ export interface Story {
   cover_image: string;
   categories?: string[];
   reading_time?: number;
+  age_range?: [number, number];
   progress?: number;
   is_favorite?: boolean;
   completed?: boolean;

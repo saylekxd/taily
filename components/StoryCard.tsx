@@ -46,6 +46,15 @@ export default function StoryCard({
         resizeMode="cover"
       />
       
+      {/* Category badge */}
+      {story.categories && story.categories.length > 0 && size !== 'small' && (
+        <View style={styles.categoryBadge}>
+          <Text style={styles.categoryBadgeText}>
+            {story.categories.find(cat => !cat.includes('age_')) || story.categories[0]}
+          </Text>
+        </View>
+      )}
+
       {/* Favorite icon */}
       {story.is_favorite && (
         <View style={styles.favoriteIcon}>
@@ -72,15 +81,20 @@ export default function StoryCard({
           {story.title}
         </Text>
         
-        {size !== 'small' && story.reading_time && (
-          <Text style={styles.readingTime}>{story.reading_time} min</Text>
-        )}
-        
-        {story.categories && story.categories.length > 0 && size === 'large' && (
-          <View style={styles.categoryContainer}>
-            <Text style={styles.category}>{story.categories[0]}</Text>
+        {size !== 'small' && (story.reading_time || story.age_range) && (
+          <View style={styles.metaContainer}>
+            {story.reading_time && (
+              <Text style={styles.readingTime}>{story.reading_time} min</Text>
+            )}
+            {story.age_range && (
+              <Text style={styles.ageRange}>
+                {story.reading_time ? ' • ' : ''}Ages {story.age_range[0]}-{story.age_range[1]}
+              </Text>
+            )}
           </View>
         )}
+        
+
         
         {/* "New" badge */}
         {story.is_new && (
@@ -125,25 +139,38 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     lineHeight: 22,
   },
+  metaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   readingTime: {
     fontFamily: 'Nunito-Regular',
     fontSize: 12,
     color: colors.textSecondary,
     opacity: 0.9,
   },
-  categoryContainer: {
+  ageRange: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
+    color: colors.textSecondary,
+    opacity: 0.9,
+  },
+
+  categoryBadge: {
     position: 'absolute',
-    top: -32,
-    left: 14,
+    top: 12,
+    left: 12,
     backgroundColor: colors.primary,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 12,
   },
-  category: {
+  categoryBadgeText: {
     fontFamily: 'Nunito-Bold',
-    fontSize: 12,
+    fontSize: 10,
     color: colors.white,
+    letterSpacing: 0.5,
+    textTransform: 'capitalize',
   },
   favoriteIcon: {
     position: 'absolute',
