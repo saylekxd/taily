@@ -39,6 +39,12 @@ export interface ReaderHeaderProps {
   onSettingsToggle: () => void;
   colorTheme: ColorThemeStyle;
   isFullscreen: boolean;
+  // Interactive Reading props
+  interactiveState?: InteractiveReadingState;
+  onToggleListening?: () => void;
+  onToggleInteractiveMode?: () => void;
+  onEnableAndStartListening?: () => void;
+  isInteractiveAvailable?: boolean;
 }
 
 export interface SettingsPanelProps {
@@ -48,6 +54,12 @@ export interface SettingsPanelProps {
   onFontSizeDecrease: () => void;
   onColorThemeChange: (theme: ColorTheme) => void;
   onFullscreenToggle: () => void;
+  // Interactive Reading props
+  interactiveState: InteractiveReadingState;
+  onToggleListening: () => void;
+  onToggleInteractiveMode: () => void;
+  onToggleSoundEffects: () => void;
+  isInteractiveAvailable?: boolean;
 }
 
 export interface ReaderContentProps {
@@ -73,6 +85,12 @@ export interface FullscreenControlsProps {
   colorTheme: ColorThemeStyle;
   onToggleFullscreen: () => void;
   onClose: () => void;
+  // Interactive Reading props
+  interactiveState?: InteractiveReadingState;
+  onToggleListening?: () => void;
+  onToggleInteractiveMode?: () => void;
+  onEnableAndStartListening?: () => void;
+  isInteractiveAvailable?: boolean;
 }
 
 // Feature 3 types

@@ -461,6 +461,51 @@ export function useInteractiveReadingWithErrorHandling(
     await performAutoRetry();
   };
 
+  const enableAndStartListening = async () => {
+    try {
+      if (!interactiveState.isEnabled) {
+        // Enable interactive mode first
+        setInteractiveState(prev => ({ 
+          ...prev, 
+          isEnabled: true,
+          hasRetriableError: false,
+          autoRetryCount: 0,
+        }));
+        
+        setError(null);
+      }
+
+      // Start listening regardless of current state
+      if (!interactiveState.isListening) {
+        // Reset tracking when starting to listen
+        processedContentRef.current = '';
+        isActiveSessionRef.current = true;
+
+        const success = await speechRecognitionService.startListening({
+          language: 'en-US',
+          continuous: true,
+          interimResults: true,
+        });
+
+        if (!success) {
+          isActiveSessionRef.current = false;
+          setError('Failed to start speech recognition');
+        }
+      } else {
+        // Stop listening if already listening
+        isActiveSessionRef.current = false;
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+        await speechRecognitionService.stopListening();
+      }
+    } catch (error) {
+      console.error('Error enabling and starting listening:', error);
+      isActiveSessionRef.current = false;
+      setError(error instanceof Error ? error.message : 'Failed to enable and start listening');
+    }
+  };
+
   // Platform-specific availability check
   const isAvailable = Platform.OS !== 'web' || 
     (typeof window !== 'undefined' && 
@@ -477,5 +522,6 @@ export function useInteractiveReadingWithErrorHandling(
     onWordRecognized,
     clearError,
     manualRetry,
+    enableAndStartListening,
   };
 } 

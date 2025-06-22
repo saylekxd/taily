@@ -28,7 +28,6 @@ import ReaderHeader from './components/ReaderHeader';
 import SettingsPanel from './components/SettingsPanel';
 import ReaderContent from './components/ReaderContent';
 import FullscreenControls from './components/FullscreenControls';
-import InteractiveControls from './components/InteractiveControls';
 import SpeechRecognitionErrorHandler from '@/components/ErrorHandling/SpeechRecognitionErrorHandler';
 
 export default function DetailedReaderView({
@@ -80,6 +79,7 @@ export default function DetailedReaderView({
     onWordRecognized,
     clearError,
     manualRetry,
+    enableAndStartListening,
   } = useInteractiveReadingWithErrorHandling(content, storyId, personalizedStoryId);
 
   // Handle instructions banner
@@ -156,6 +156,11 @@ export default function DetailedReaderView({
           onSettingsToggle={() => setShowSettings(!showSettings)}
           colorTheme={currentTheme}
           isFullscreen={settings.isFullscreen}
+          interactiveState={interactiveState}
+          onToggleListening={toggleListening}
+          onToggleInteractiveMode={toggleInteractiveMode}
+          onEnableAndStartListening={enableAndStartListening}
+          isInteractiveAvailable={isInteractiveAvailable}
         />
 
         {/* Settings Panel */}
@@ -167,6 +172,11 @@ export default function DetailedReaderView({
             onFontSizeDecrease={decreaseFontSize}
             onColorThemeChange={handleColorThemeChange}
             onFullscreenToggle={toggleFullscreen}
+            interactiveState={interactiveState}
+            onToggleListening={toggleListening}
+            onToggleInteractiveMode={toggleInteractiveMode}
+            onToggleSoundEffects={toggleSoundEffects}
+            isInteractiveAvailable={isInteractiveAvailable}
           />
         )}
 
@@ -178,17 +188,7 @@ export default function DetailedReaderView({
           colorTheme={currentTheme}
         />
 
-        {/* Interactive Controls (Feature 3) */}
-        <InteractiveControls
-          state={interactiveState}
-          onToggleListening={toggleListening}
-          onToggleInteractiveMode={toggleInteractiveMode}
-          onToggleSoundEffects={toggleSoundEffects}
-          colorTheme={currentTheme}
-          error={null} // Let the error handler above manage errors
-          isAvailable={isInteractiveAvailable}
-          onClearError={clearError}
-        />
+
 
         {/* Content */}
         <ReaderContent
@@ -214,6 +214,11 @@ export default function DetailedReaderView({
             colorTheme={currentTheme}
             onToggleFullscreen={toggleFullscreen}
             onClose={onClose}
+            interactiveState={interactiveState}
+            onToggleListening={toggleListening}
+            onToggleInteractiveMode={toggleInteractiveMode}
+            onEnableAndStartListening={enableAndStartListening}
+            isInteractiveAvailable={isInteractiveAvailable}
           />
         )}
 

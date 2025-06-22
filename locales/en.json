@@ -292,13 +292,13 @@
     "explorer": "Read stories from 5 different categories"
   },
   "error": {
-    "speechRecognitionTitle": "Speech Recognition Issue",
+    "speechRecognitionTitle": "Speech Recognition Disabled",
     "speechRecognitionTemporary": "Temporary connection issue. This will be automatically retried.",
     "speechRecognitionRetrying": "Attempting to reconnect...",
     "speechRecognitionRetryFailed": "Retry {{attempt}}/{{max}} failed. Still trying...",
     "speechRecognitionPermission": "Microphone permission required. Please allow microphone access.",
     "speechRecognitionUnsupported": "Speech recognition is not supported on this device.",
-    "speechRecognitionGeneric": "Speech recognition temporarily unavailable.",
+    "speechRecognitionGeneric": "Speech recognition temporarily disabled. You can enable it in the settings.",
     "autoRetrying": "Auto-retrying in progress...",
     "autoRetryIn": "Auto-retry in {{seconds}}s"
   }

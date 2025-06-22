@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { X, Settings } from 'lucide-react-native';
+import { X, Settings, Mic, MicOff } from 'lucide-react-native';
 import { ReaderHeaderProps } from '../types';
+import { colors } from '@/constants/colors';
 
 export default function ReaderHeader({
   title,
@@ -9,8 +10,26 @@ export default function ReaderHeader({
   onSettingsToggle,
   colorTheme,
   isFullscreen,
+  // Interactive reading props
+  interactiveState,
+  onToggleListening,
+  onToggleInteractiveMode,
+  onEnableAndStartListening,
+  isInteractiveAvailable = true,
 }: ReaderHeaderProps) {
   if (isFullscreen) return null;
+
+  const handleMicrophonePress = () => {
+    // Use the combined function that handles both enabling and starting listening
+    onEnableAndStartListening?.();
+  };
+
+  const getMicrophoneIcon = () => {
+    if (!interactiveState?.isEnabled || !interactiveState?.isListening) {
+      return <MicOff size={24} color={colorTheme.text} />;
+    }
+    return <Mic size={24} color={colors.primary} />;
+  };
 
   return (
     <View style={[styles.header, { 
@@ -28,6 +47,20 @@ export default function ReaderHeader({
       </Text>
       
       <View style={styles.headerRight}>
+        {/* Microphone Button */}
+        {isInteractiveAvailable && (
+          <TouchableOpacity 
+            style={[
+              styles.headerButton,
+              interactiveState?.isListening && { backgroundColor: colors.primary + '20' }
+            ]} 
+            onPress={handleMicrophonePress}
+          >
+            {getMicrophoneIcon()}
+          </TouchableOpacity>
+        )}
+        
+        {/* Settings Button */}
         <TouchableOpacity 
           style={styles.headerButton} 
           onPress={onSettingsToggle}
@@ -51,11 +84,13 @@ const styles = StyleSheet.create({
     width: 44,
   },
   headerRight: {
-    width: 44,
+    flexDirection: 'row',
     alignItems: 'flex-end',
+    gap: 4,
   },
   headerButton: {
     padding: 8,
+    borderRadius: 8,
   },
   headerTitle: {
     flex: 1,

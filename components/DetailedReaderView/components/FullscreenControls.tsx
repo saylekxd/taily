@@ -1,15 +1,47 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { X, Minimize2 } from 'lucide-react-native';
+import { X, Minimize2, Mic, MicOff } from 'lucide-react-native';
 import { FullscreenControlsProps } from '../types';
+import { colors } from '@/constants/colors';
 
 export default function FullscreenControls({
   colorTheme,
   onToggleFullscreen,
   onClose,
+  // Interactive reading props
+  interactiveState,
+  onToggleListening,
+  onToggleInteractiveMode,
+  onEnableAndStartListening,
+  isInteractiveAvailable = true,
 }: FullscreenControlsProps) {
+  const handleMicrophonePress = () => {
+    // Use the combined function that handles both enabling and starting listening
+    onEnableAndStartListening?.();
+  };
+
+  const getMicrophoneIcon = () => {
+    if (!interactiveState?.isEnabled || !interactiveState?.isListening) {
+      return <MicOff size={16} color={colorTheme.text} />;
+    }
+    return <Mic size={16} color={colors.primary} />;
+  };
+
   return (
     <View style={[styles.fullscreenControls, { backgroundColor: colorTheme.card + 'CC' }]}>
+      {/* Microphone Button */}
+      {isInteractiveAvailable && (
+        <TouchableOpacity 
+          style={[
+            styles.fullscreenButton,
+            interactiveState?.isListening && { backgroundColor: colors.primary + '20' }
+          ]} 
+          onPress={handleMicrophonePress}
+        >
+          {getMicrophoneIcon()}
+        </TouchableOpacity>
+      )}
+      
       <TouchableOpacity style={styles.fullscreenButton} onPress={onToggleFullscreen}>
         <Minimize2 size={16} color={colorTheme.text} />
       </TouchableOpacity>

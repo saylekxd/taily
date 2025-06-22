@@ -6,6 +6,7 @@ import { useI18n } from '@/hooks/useI18n';
 import { ColorTheme } from '@/types';
 import { SettingsPanelProps } from '../types';
 import { colorThemes } from '../constants';
+import InteractiveReadingSection from './InteractiveReadingSection';
 
 export default function SettingsPanel({
   settings,
@@ -14,6 +15,11 @@ export default function SettingsPanel({
   onFontSizeDecrease,
   onColorThemeChange,
   onFullscreenToggle,
+  interactiveState,
+  onToggleListening,
+  onToggleInteractiveMode,
+  onToggleSoundEffects,
+  isInteractiveAvailable = true,
 }: SettingsPanelProps) {
   const { t } = useI18n();
 
@@ -65,6 +71,21 @@ export default function SettingsPanel({
             </TouchableOpacity>
           ))}
         </View>
+      </View>
+
+      {/* Interactive Reading Section */}
+      <View style={styles.settingSection}>
+        <Text style={[styles.settingTitle, { color: colorTheme.text }]}>
+          {t('story.interactiveReading')}
+        </Text>
+        <InteractiveReadingSection
+          interactiveState={interactiveState}
+          colorTheme={colorTheme}
+          onToggleListening={onToggleListening}
+          onToggleInteractiveMode={onToggleInteractiveMode}
+          onToggleSoundEffects={onToggleSoundEffects}
+          isInteractiveAvailable={isInteractiveAvailable}
+        />
       </View>
 
       {/* Fullscreen Toggle */}
