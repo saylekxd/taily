@@ -211,11 +211,13 @@ export default function HomeScreen() {
       {dailyStory && (
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>{t('home.yourDailyStory')}</Text>
-          <StoryCard 
-            story={dailyStory} 
-            size="large" 
-            onPress={() => router.push(`/story/${dailyStory.id}`)}
-          />
+          <View style={styles.dailyStoryCard}>
+            <StoryCard 
+              story={dailyStory} 
+              size="large" 
+              onPress={() => router.push(`/story/${dailyStory.id}`)}
+            />
+          </View>
         </View>
       )}
 
@@ -356,6 +358,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.white,
     marginLeft: 8,
+  },
+  dailyStoryCard: {
+    marginTop: 16,
   },
   createStoryButton: {
     backgroundColor: colors.accent,
