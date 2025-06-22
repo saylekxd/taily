@@ -84,9 +84,9 @@
     "noDailyStorySubtext": "Sprawdź jutro nową historię!",
     "yourPersonalizedStories": "Twoje Spersonalizowane Historie",
     "createNew": "Utwórz Nową",
-    "createNewStory": "Utwórz Nową Historię",
+    "createNewStory": "Utwórz Nową",
     "limitReached": "Limit Osiągnięty",
-    "personalizedForYou": "Spersonalizowane dla Ciebie",
+    "personalizedForYou": "Spersonalizowane",
     "waitForRenewal": "Czekaj na odnowienie",
     "storiesLeft": "historii pozostało",
     "renewsIn": "Odnawia się za {{time}}",
@@ -290,5 +290,16 @@
     "night_owl": "Przeczytaj historię po 20:00",
     "bookworm": "Czytaj przez więcej niż godzinę dziennie",
     "explorer": "Przeczytaj historie z 5 różnych kategorii"
+  },
+  "error": {
+    "speechRecognitionTitle": "Rozpoznawanie Mowy Wyłączone",
+    "speechRecognitionTemporary": "Tymczasowy problem z połączeniem. Zostanie automatycznie ponowiona próba.",
+    "speechRecognitionRetrying": "Próba ponownego połączenia...",
+    "speechRecognitionRetryFailed": "Próba {{attempt}}/{{max}} nieudana. Nadal próbuję...",
+    "speechRecognitionPermission": "Wymagane jest pozwolenie na mikrofon. Proszę zezwolić na dostęp do mikrofonu.",
+    "speechRecognitionUnsupported": "Rozpoznawanie mowy nie jest obsługiwane na tym urządzeniu.",
+    "speechRecognitionGeneric": "Rozpoznawanie mowy tymczasowo wyłączone. Możesz je włączyć w ustawieniach.",
+    "autoRetrying": "Automatyczne ponawianie w toku...",
+    "autoRetryIn": "Automatyczne ponawianie za {{seconds}}s"
   }
 }
