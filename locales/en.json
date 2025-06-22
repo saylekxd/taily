@@ -84,6 +84,12 @@
     "noDailyStorySubtext": "Check back tomorrow for a new story!",
     "yourPersonalizedStories": "Your Personalized Stories",
     "createNew": "Create New",
+    "createNewStory": "Create New Story",
+    "limitReached": "Limit Reached",
+    "personalizedForYou": "Personalized for you",
+    "waitForRenewal": "Wait for renewal",
+    "storiesLeft": "stories left / month",
+    "renewsIn": "Renews in {{time}}",
     "noPersonalizedStories": "No personalized stories yet",
     "createFirstPersonalizedStory": "Create stories where your child is the hero!",
     "createYourFirstStory": "Create Your First Story"

@@ -17,6 +17,7 @@ import { ChevronRight, Sparkles } from 'lucide-react-native';
 import StoryCard from '@/components/StoryCard';
 import PersonalizedStoryCard from '@/components/PersonalizedStoryCard';
 import PersonalizedStoryGenerator from '@/components/PersonalizedStoryGenerator';
+import CreatePersonalizedStoryCard from '@/components/CreatePersonalizedStoryCard';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
@@ -146,50 +147,36 @@ export default function HomeScreen() {
             <Sparkles size={20} color={colors.accent} />
             <Text style={styles.sectionTitle}>{t('home.yourPersonalizedStories')}</Text>
           </View>
-          {limitInfo.canGenerate && (
-            <TouchableOpacity 
-              style={styles.createStoryButton}
-              onPress={() => setShowGenerator(true)}
-            >
-              <Sparkles size={16} color={colors.white} />
-              <Text style={styles.createStoryText}>{t('home.createNew')}</Text>
-            </TouchableOpacity>
-          )}
         </View>
         
-        {personalizedStories.length > 0 ? (
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          >
-            {personalizedStories.map((story, index) => (
-              <View key={story.id} style={[styles.horizontalCard, { marginLeft: index === 0 ? 0 : 12 }]}>
-                <PersonalizedStoryCard 
-                  story={story} 
-                  size="medium"
-                  onPress={() => router.push(`/story/${story.id}?personalized=true`)}
-                  onDelete={() => handleDeletePersonalizedStory(story.id)}
-                />
-              </View>
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={styles.emptyPersonalizedContainer}>
-            <Sparkles size={48} color={colors.accent} />
-            <Text style={styles.emptyPersonalizedTitle}>{t('home.noPersonalizedStories')}</Text>
-            <Text style={styles.emptyPersonalizedSubtitle}>{t('home.createFirstPersonalizedStory')}</Text>
-            {limitInfo.canGenerate && (
-              <TouchableOpacity 
-                style={styles.createFirstStoryButton}
-                onPress={() => setShowGenerator(true)}
-              >
-                <Sparkles size={16} color={colors.white} />
-                <Text style={styles.createFirstStoryText}>{t('home.createYourFirstStory')}</Text>
-              </TouchableOpacity>
-            )}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        >
+          {/* Create New Story Card - Always first */}
+          <View style={[styles.horizontalCard, { marginLeft: 0 }]}>
+            <CreatePersonalizedStoryCard
+              onPress={() => setShowGenerator(true)}
+              currentCount={limitInfo.currentCount}
+              maxCount={limitInfo.maxCount}
+              canGenerate={limitInfo.canGenerate}
+              renewalTime="24 hours"
+            />
           </View>
-        )}
+          
+          {/* Existing Personalized Stories */}
+          {personalizedStories.map((story) => (
+            <View key={story.id} style={[styles.horizontalCard, { marginLeft: 12 }]}>
+              <PersonalizedStoryCard 
+                story={story} 
+                size="medium"
+                onPress={() => router.push(`/story/${story.id}?personalized=true`)}
+                onDelete={() => handleDeletePersonalizedStory(story.id)}
+              />
+            </View>
+          ))}
+        </ScrollView>
       </View>
 
       {/* Daily Story */}

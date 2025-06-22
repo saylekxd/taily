@@ -84,6 +84,12 @@
     "noDailyStorySubtext": "Sprawdź jutro nową historię!",
     "yourPersonalizedStories": "Twoje Spersonalizowane Historie",
     "createNew": "Utwórz Nową",
+    "createNewStory": "Utwórz Nową Historię",
+    "limitReached": "Limit Osiągnięty",
+    "personalizedForYou": "Spersonalizowane dla Ciebie",
+    "waitForRenewal": "Czekaj na odnowienie",
+    "storiesLeft": "historii pozostało",
+    "renewsIn": "Odnawia się za {{time}}",
     "noPersonalizedStories": "Brak spersonalizowanych historii",
     "createFirstPersonalizedStory": "Twórz historie, w których Twoje dziecko jest bohaterem!",
     "createYourFirstStory": "Utwórz Swoją Pierwszą Historię"
