@@ -621,6 +621,14 @@ CREATE POLICY "Users can view their own subscription"
   ON user_subscriptions FOR SELECT
   USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can insert their own subscription"
+  ON user_subscriptions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own subscription"
+  ON user_subscriptions FOR UPDATE
+  USING (auth.uid() = user_id);
+
 CREATE POLICY "Users can view their own usage limits"
   ON user_usage_limits FOR SELECT
   USING (auth.uid() = user_id);
@@ -721,44 +729,67 @@ class RevenueCatService {
     return customerInfo;
   }
 
-  async syncSubscriptionStatus(customerInfo?: CustomerInfo) {
-    if (!customerInfo) {
-      customerInfo = await this.getCustomerInfo();
+  async syncSubscriptionStatus(customerInfo?: CustomerInfo, retryCount = 0) {
+    try {
+      if (!customerInfo) {
+        customerInfo = await this.getCustomerInfo();
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const isPremium = customerInfo.entitlements.active['premium'] !== undefined;
+      const premiumEntitlement = customerInfo.entitlements.active['premium'];
+      const expiryDate = premiumEntitlement?.expirationDate;
+      const productId = premiumEntitlement?.productIdentifier;
+
+      // Update profiles table for quick access
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          subscription_tier: isPremium ? 'premium' : 'free',
+          subscription_expires_at: expiryDate,
+          revenue_cat_customer_id: customerInfo.originalAppUserId
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        throw new Error(`Failed to update profile: ${profileError.message}`);
+      }
+
+      // Update or insert subscription record
+      const { error: subscriptionError } = await supabase
+        .from('user_subscriptions')
+        .upsert({
+          user_id: user.id,
+          subscription_status: isPremium ? 'premium' : 'free',
+          revenue_cat_customer_id: customerInfo.originalAppUserId,
+          product_id: productId,
+          expiry_date: expiryDate,
+          is_active: isPremium,
+          platform: Platform.OS,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (subscriptionError) {
+        throw new Error(`Failed to update subscription: ${subscriptionError.message}`);
+      }
+
+    } catch (error) {
+      console.error('Error syncing subscription status:', error);
+      
+      // Retry logic for transient failures
+      if (retryCount < 3) {
+        console.log(`Retrying subscription sync (attempt ${retryCount + 1}/3)`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
+        return this.syncSubscriptionStatus(customerInfo, retryCount + 1);
+      }
+      
+      // Log error for monitoring but don't throw to avoid breaking user flow
+      console.error('Failed to sync subscription after 3 attempts:', error);
     }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const isPremium = customerInfo.entitlements.active['premium'] !== undefined;
-    const premiumEntitlement = customerInfo.entitlements.active['premium'];
-    const expiryDate = premiumEntitlement?.expirationDate;
-    const productId = premiumEntitlement?.productIdentifier;
-
-    // Update profiles table for quick access
-    await supabase
-      .from('profiles')
-      .update({
-        subscription_tier: isPremium ? 'premium' : 'free',
-        subscription_expires_at: expiryDate,
-        revenue_cat_customer_id: customerInfo.originalAppUserId
-      })
-      .eq('id', user.id);
-
-    // Update or insert subscription record
-    await supabase
-      .from('user_subscriptions')
-      .upsert({
-        user_id: user.id,
-        subscription_status: isPremium ? 'premium' : 'free',
-        revenue_cat_customer_id: customerInfo.originalAppUserId,
-        product_id: productId,
-        expiry_date: expiryDate,
-        is_active: isPremium,
-        platform: Platform.OS,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
-      });
   }
 
   async checkSubscriptionStatus(userId: string): Promise<{
@@ -861,7 +892,8 @@ class SubscriptionService {
 
     // Check if daily reset is needed (for premium users)
     const today = new Date().toISOString().split('T')[0];
-    const lastReset = usage.ai_stories_last_reset_date;
+    const lastReset = usage.ai_stories_last_reset_date ? 
+      new Date(usage.ai_stories_last_reset_date).toISOString().split('T')[0] : null;
     
     if (isPremium && lastReset !== today) {
       // Reset daily counter for premium users
@@ -954,7 +986,8 @@ class SubscriptionService {
 
     // Check if monthly reset is needed
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const lastResetMonth = usage.audio_generations_last_reset_date?.slice(0, 7);
+    const lastResetMonth = usage.audio_generations_last_reset_date ? 
+      new Date(usage.audio_generations_last_reset_date).toISOString().slice(0, 7) : null;
     
     if (currentMonth !== lastResetMonth) {
       await supabase
@@ -1077,6 +1110,160 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION increment_ai_story_usage(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION increment_audio_usage(UUID) TO authenticated;
+```
+
+#### Step 4.6b: Create RevenueCat Webhook Handler
+- [ ] Create Supabase Edge Function `supabase/functions/revenue-cat-webhook/index.ts`
+```typescript
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    const payload = await req.json();
+    const { event } = payload;
+
+    // Verify webhook signature (recommended for production)
+    // const signature = req.headers.get('X-RevenueCat-Signature');
+    // if (!verifyWebhookSignature(signature, JSON.stringify(payload))) {
+    //   return new Response('Invalid signature', { status: 401 });
+    // }
+
+    // Log the webhook event
+    await supabase
+      .from('revenue_cat_events')
+      .insert({
+        user_id: event.app_user_id,
+        event_type: event.type,
+        revenue_cat_customer_id: event.app_user_id,
+        product_id: event.product_id,
+        subscription_id: event.id,
+        event_data: event,
+        processed_at: new Date().toISOString()
+      });
+
+    // Handle different event types
+    switch (event.type) {
+      case 'INITIAL_PURCHASE':
+      case 'RENEWAL':
+      case 'PRODUCT_CHANGE':
+        await handleSubscriptionActivation(supabase, event);
+        break;
+      
+      case 'CANCELLATION':
+      case 'EXPIRATION':
+        await handleSubscriptionDeactivation(supabase, event);
+        break;
+      
+      case 'BILLING_ISSUE':
+        await handleBillingIssue(supabase, event);
+        break;
+      
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Webhook error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400 
+      }
+    );
+  }
+});
+
+async function handleSubscriptionActivation(supabase: any, event: any) {
+  const userId = event.app_user_id;
+  const expiryDate = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
+  
+  // Update profiles table
+  await supabase
+    .from('profiles')
+    .update({
+      subscription_tier: 'premium',
+      subscription_expires_at: expiryDate
+    })
+    .eq('id', userId);
+
+  // Update subscription record
+  await supabase
+    .from('user_subscriptions')
+    .upsert({
+      user_id: userId,
+      subscription_status: 'premium',
+      revenue_cat_customer_id: event.app_user_id,
+      product_id: event.product_id,
+      expiry_date: expiryDate,
+      is_active: true,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id'
+    });
+}
+
+async function handleSubscriptionDeactivation(supabase: any, event: any) {
+  const userId = event.app_user_id;
+  
+  // Update profiles table
+  await supabase
+    .from('profiles')
+    .update({
+      subscription_tier: 'free',
+      subscription_expires_at: null
+    })
+    .eq('id', userId);
+
+  // Update subscription record
+  await supabase
+    .from('user_subscriptions')
+    .update({
+      subscription_status: 'expired',
+      is_active: false,
+      updated_at: new Date().toISOString()
+    })
+    .eq('user_id', userId);
+}
+
+async function handleBillingIssue(supabase: any, event: any) {
+  const userId = event.app_user_id;
+  
+  // Update subscription status to indicate billing issue
+  await supabase
+    .from('user_subscriptions')
+    .update({
+      subscription_status: 'billing_issue',
+      updated_at: new Date().toISOString()
+    })
+    .eq('user_id', userId);
+  
+  // Note: Don't immediately revoke access, give user time to resolve
+}
 ```
 
 ### Service Integration Updates
@@ -1563,6 +1750,58 @@ export const useSubscription = () => {
 };
 ```
 
+### App Initialization
+
+#### Step 4.10b: Update App Layout
+- [ ] Update `app/_layout.tsx` to initialize RevenueCat and SubscriptionProvider
+```typescript
+import { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import { SubscriptionProvider } from '@/context/SubscriptionContext';
+import { revenueCatService } from '@/services/revenueCatService';
+
+export default function RootLayout() {
+  useEffect(() => {
+    // Initialize RevenueCat on app startup
+    const initializeApp = async () => {
+      try {
+        await revenueCatService.initialize();
+        console.log('RevenueCat initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize RevenueCat:', error);
+      }
+    };
+
+    initializeApp();
+  }, []);
+
+  return (
+    <SubscriptionProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        <Stack.Screen name="paywall" options={{ 
+          presentation: 'modal',
+          title: 'Upgrade to Premium' 
+        }} />
+        <Stack.Screen name="story/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+      </Stack>
+    </SubscriptionProvider>
+  );
+}
+```
+
+#### Step 4.10c: Create Paywall Route
+- [ ] Create `app/paywall.tsx` (main paywall screen route)
+```typescript
+import PaywallScreen from '@/components/paywall/PaywallScreen';
+
+export default function PaywallRoute() {
+  return <PaywallScreen />;
+}
+```
+
 ### Integration Points
 
 #### Step 4.11: Update Story Reading Components
@@ -1644,8 +1883,14 @@ const handleGenerateAudio = async () => {
   - `premium_yearly` - $49.99/year (optional)
 - [ ] Create entitlements:
   - `premium` - Access to all premium features
-- [ ] Configure webhook URL for Supabase integration
+- [ ] Configure webhook URL for Supabase integration:
+  - URL: `https://your-project.supabase.co/functions/v1/revenue-cat-webhook`
+  - Events: `INITIAL_PURCHASE`, `RENEWAL`, `CANCELLATION`, `EXPIRATION`, `BILLING_ISSUE`
 - [ ] Set up iOS and Android API keys
+- [ ] Deploy webhook edge function:
+```bash
+supabase functions deploy revenue-cat-webhook --project-ref your-project-ref
+```
 
 #### Step 4.15: App Store Connect (iOS)
 - [ ] Create in-app purchase products:
@@ -1718,6 +1963,14 @@ EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY=your_android_api_key
 - [ ] Subscription cancellation handling
 - [ ] Multiple device synchronization
 
+#### Monitoring & Analytics
+- [ ] Track paywall conversion rates by feature trigger
+- [ ] Monitor subscription sync success/failure rates
+- [ ] Log usage limit hit rates for freemium users
+- [ ] Track time-to-upgrade after paywall trigger
+- [ ] Monitor webhook delivery success rates
+- [ ] Set up alerts for failed subscription syncs
+
 ---
 
 ## Implementation Order & Timeline
@@ -1762,7 +2015,8 @@ EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY=your_android_api_key
     "expo-microphone": "~2.0.0",
     "expo-file-system": "~17.0.1",
     "@react-native-voice/voice": "^3.2.4",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "react-native-purchases": "^8.0.0"
   }
 }
 ```
