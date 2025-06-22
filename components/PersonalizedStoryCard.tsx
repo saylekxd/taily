@@ -21,8 +21,8 @@ export default function PersonalizedStoryCard({
   
   const cardDimensions = {
     small: { width: 120, height: 160 },
-    medium: { width: '100%', height: 220 },
-    large: { width: '100%', height: 220 },
+    medium: { width: undefined as any, height: 220 },
+    large: { width: undefined as any, height: 220 },
   };
   
   const fontSize = {

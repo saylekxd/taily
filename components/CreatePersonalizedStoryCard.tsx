@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Sparkles, Plus } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useI18n } from '@/hooks/useI18n';
+import FloatingStars from './FloatingStars';
 
 interface CreatePersonalizedStoryCardProps {
   onPress: () => void;
@@ -90,6 +91,9 @@ export default function CreatePersonalizedStoryCard({
       <View style={[styles.sparkleDecoration, styles.sparkleTwo]}>
         <Sparkles size={8} color={colors.accent + '30'} />
       </View>
+
+      {/* Soft animated floating stars */}
+      <FloatingStars isVisible={canGenerate} />
     </TouchableOpacity>
   );
 }

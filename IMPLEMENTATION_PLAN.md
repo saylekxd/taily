@@ -540,6 +540,1186 @@ const renderContent = () => {
 
 ---
 
+## Feature 4: RevenueCat Paywall System (Freemium to Premium)
+
+### Overview
+Implement RevenueCat as the paywall system to create a freemium model with clear usage limits and premium upgrade path. This feature will monetize the app while providing value in both free and premium tiers.
+
+### Business Model Definition
+
+#### Freemium Tier (Free)
+- **Daily Stories**: Full access to view daily story rotation
+- **AI Story Generation**: 2 stories lifetime limit
+- **Story Reading**: Access to all story content but limited to 20% progress (uses existing `progress` column in `user_stories` table)
+- **Audio Generation**: No access (premium feature only)
+
+#### Premium Tier ($4.99/month)
+- **Daily Stories**: Full access maintained
+- **AI Story Generation**: 2 stories per day (reset every 24 hours)
+- **Story Reading**: Full access to complete story content (100% progress)
+- **Audio Generation**: 2 AI story audio generations per month
+
+### Database Schema Changes
+
+#### Step 4.1: Create Subscription Management Tables
+```sql
+-- User subscription status and RevenueCat integration
+CREATE TABLE user_subscriptions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  subscription_status TEXT CHECK (subscription_status IN ('free', 'premium', 'trial', 'expired')) DEFAULT 'free',
+  revenue_cat_customer_id TEXT,
+  revenue_cat_subscription_id TEXT,
+  product_id TEXT, -- 'premium_monthly', 'premium_yearly'
+  purchase_date TIMESTAMPTZ,
+  expiry_date TIMESTAMPTZ,
+  trial_end_date TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT false,
+  platform TEXT CHECK (platform IN ('ios', 'android')),
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+  UNIQUE(user_id)
+);
+
+-- Usage tracking for freemium limits and premium quotas
+CREATE TABLE user_usage_limits (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  -- AI Story limits
+  ai_stories_generated_lifetime INTEGER DEFAULT 0,
+  ai_stories_generated_today INTEGER DEFAULT 0,
+  ai_stories_last_reset_date DATE DEFAULT CURRENT_DATE,
+  -- Audio generation limits (premium only)
+  audio_generations_this_month INTEGER DEFAULT 0,
+  audio_generations_last_reset_date DATE DEFAULT DATE_TRUNC('month', CURRENT_DATE),
+  -- Story reading progress tracking handled by existing user_stories.progress
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+  UNIQUE(user_id)
+);
+
+-- RevenueCat webhook events log
+CREATE TABLE revenue_cat_events (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL, -- 'initial_purchase', 'renewal', 'cancellation', 'billing_issue', etc.
+  revenue_cat_customer_id TEXT NOT NULL,
+  product_id TEXT,
+  subscription_id TEXT,
+  event_data JSONB,
+  processed_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()),
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
+);
+
+-- Enable RLS for all tables
+ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_usage_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE revenue_cat_events ENABLE ROW LEVEL SECURITY;
+
+-- Create RLS policies
+CREATE POLICY "Users can view their own subscription"
+  ON user_subscriptions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own usage limits"
+  ON user_usage_limits FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own usage limits"
+  ON user_usage_limits FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own usage limits"
+  ON user_usage_limits FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Revenue cat events are system-managed only
+CREATE POLICY "Users can view their own revenue cat events"
+  ON revenue_cat_events FOR SELECT
+  USING (auth.uid() = user_id);
+```
+
+#### Step 4.2: Update Existing Tables
+```sql
+-- Add subscription fields to profiles for quick access
+ALTER TABLE profiles 
+ADD COLUMN subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'premium')),
+ADD COLUMN subscription_expires_at TIMESTAMPTZ,
+ADD COLUMN revenue_cat_customer_id TEXT;
+
+-- Create index for quick subscription lookups
+CREATE INDEX idx_profiles_subscription_tier ON profiles(subscription_tier);
+CREATE INDEX idx_profiles_revenue_cat_customer ON profiles(revenue_cat_customer_id);
+
+-- Initialize usage limits for existing users
+INSERT INTO user_usage_limits (user_id)
+SELECT id FROM profiles
+WHERE id NOT IN (SELECT user_id FROM user_usage_limits);
+```
+
+### Backend Implementation
+
+#### Step 4.3: Install RevenueCat Dependencies
+```bash
+npm install react-native-purchases
+# For iOS
+cd ios && pod install
+# For Android - add to android/app/build.gradle if needed
+```
+
+#### Step 4.4: Create RevenueCat Service
+- [ ] Create `services/revenueCatService.ts`
+```typescript
+import Purchases, { CustomerInfo, PurchaserInfo, PRODUCT_CATEGORY } from 'react-native-purchases';
+import { Platform } from 'react-native';
+import { supabase } from '@/lib/supabase';
+
+class RevenueCatService {
+  private initialized = false;
+
+  async initialize() {
+    if (this.initialized) return;
+    
+    Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
+    
+    if (Platform.OS === 'ios') {
+      await Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY! });
+    } else {
+      await Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY! });
+    }
+    
+    this.initialized = true;
+  }
+
+  async identifyUser(userId: string) {
+    await this.initialize();
+    await Purchases.logIn(userId);
+  }
+
+  async getCustomerInfo(): Promise<CustomerInfo> {
+    await this.initialize();
+    return await Purchases.getCustomerInfo();
+  }
+
+  async getProducts() {
+    await this.initialize();
+    const offerings = await Purchases.getOfferings();
+    return offerings.current?.availablePackages || [];
+  }
+
+  async purchaseProduct(productId: string) {
+    await this.initialize();
+    const { customerInfo } = await Purchases.purchaseProduct(productId);
+    await this.syncSubscriptionStatus(customerInfo);
+    return customerInfo;
+  }
+
+  async restorePurchases() {
+    await this.initialize();
+    const customerInfo = await Purchases.restorePurchases();
+    await this.syncSubscriptionStatus(customerInfo);
+    return customerInfo;
+  }
+
+  async syncSubscriptionStatus(customerInfo?: CustomerInfo) {
+    if (!customerInfo) {
+      customerInfo = await this.getCustomerInfo();
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const isPremium = customerInfo.entitlements.active['premium'] !== undefined;
+    const premiumEntitlement = customerInfo.entitlements.active['premium'];
+    const expiryDate = premiumEntitlement?.expirationDate;
+    const productId = premiumEntitlement?.productIdentifier;
+
+    // Update profiles table for quick access
+    await supabase
+      .from('profiles')
+      .update({
+        subscription_tier: isPremium ? 'premium' : 'free',
+        subscription_expires_at: expiryDate,
+        revenue_cat_customer_id: customerInfo.originalAppUserId
+      })
+      .eq('id', user.id);
+
+    // Update or insert subscription record
+    await supabase
+      .from('user_subscriptions')
+      .upsert({
+        user_id: user.id,
+        subscription_status: isPremium ? 'premium' : 'free',
+        revenue_cat_customer_id: customerInfo.originalAppUserId,
+        product_id: productId,
+        expiry_date: expiryDate,
+        is_active: isPremium,
+        platform: Platform.OS,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
+      });
+  }
+
+  async checkSubscriptionStatus(userId: string): Promise<{
+    isPremium: boolean;
+    expiresAt?: Date;
+    status: string;
+  }> {
+    const { data } = await supabase
+      .from('profiles')
+      .select('subscription_tier, subscription_expires_at')
+      .eq('id', userId)
+      .single();
+
+    return {
+      isPremium: data?.subscription_tier === 'premium',
+      expiresAt: data?.subscription_expires_at ? new Date(data.subscription_expires_at) : undefined,
+      status: data?.subscription_tier || 'free'
+    };
+  }
+}
+
+export const revenueCatService = new RevenueCatService();
+```
+
+#### Step 4.5: Create Subscription Management Service
+- [ ] Create `services/subscriptionService.ts`
+```typescript
+import { supabase } from '@/lib/supabase';
+import { revenueCatService } from './revenueCatService';
+
+export interface SubscriptionStatus {
+  isPremium: boolean;
+  expiresAt?: Date;
+  status: 'free' | 'premium' | 'trial' | 'expired';
+}
+
+export interface UsageLimits {
+  aiStories: {
+    lifetimeUsed: number;
+    lifetimeLimit: number;
+    todayUsed: number;
+    dailyLimit: number;
+    canGenerate: boolean;
+    resetTime?: Date;
+  };
+  audioGeneration: {
+    monthlyUsed: number;
+    monthlyLimit: number;
+    canGenerate: boolean;
+    resetDate?: Date;
+  };
+  storyReading: {
+    canReadFull: boolean;
+    maxProgressAllowed: number;
+  };
+}
+
+class SubscriptionService {
+  async getUserSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
+    const { data } = await supabase
+      .from('profiles')
+      .select('subscription_tier, subscription_expires_at')
+      .eq('id', userId)
+      .single();
+
+    return {
+      isPremium: data?.subscription_tier === 'premium',
+      expiresAt: data?.subscription_expires_at ? new Date(data.subscription_expires_at) : undefined,
+      status: data?.subscription_tier || 'free'
+    };
+  }
+
+  async checkAIStoryGenerationLimit(userId: string): Promise<{
+    canGenerate: boolean;
+    reason?: string;
+    usageInfo: {
+      lifetimeUsed: number;
+      todayUsed: number;
+      limit: number;
+      resetTime?: Date;
+    };
+  }> {
+    const { isPremium } = await this.getUserSubscriptionStatus(userId);
+    
+    // Get or create usage record
+    let { data: usage } = await supabase
+      .from('user_usage_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (!usage) {
+      const { data: newUsage } = await supabase
+        .from('user_usage_limits')
+        .insert({ user_id: userId })
+        .select()
+        .single();
+      usage = newUsage;
+    }
+
+    // Check if daily reset is needed (for premium users)
+    const today = new Date().toISOString().split('T')[0];
+    const lastReset = usage.ai_stories_last_reset_date;
+    
+    if (isPremium && lastReset !== today) {
+      // Reset daily counter for premium users
+      await supabase
+        .from('user_usage_limits')
+        .update({
+          ai_stories_generated_today: 0,
+          ai_stories_last_reset_date: today,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+      
+      usage.ai_stories_generated_today = 0;
+    }
+
+    if (isPremium) {
+      // Premium: 2 stories per day
+      const canGenerate = usage.ai_stories_generated_today < 2;
+      const nextReset = new Date();
+      nextReset.setDate(nextReset.getDate() + 1);
+      nextReset.setHours(0, 0, 0, 0);
+
+      return {
+        canGenerate,
+        reason: canGenerate ? undefined : 'Daily limit of 2 AI stories reached. Resets at midnight.',
+        usageInfo: {
+          lifetimeUsed: usage.ai_stories_generated_lifetime,
+          todayUsed: usage.ai_stories_generated_today,
+          limit: 2,
+          resetTime: nextReset
+        }
+      };
+    } else {
+      // Free: 2 lifetime stories
+      const canGenerate = usage.ai_stories_generated_lifetime < 2;
+      
+      return {
+        canGenerate,
+        reason: canGenerate ? undefined : 'You\'ve used your 2 lifetime AI stories. Upgrade to Premium for 2 stories daily!',
+        usageInfo: {
+          lifetimeUsed: usage.ai_stories_generated_lifetime,
+          todayUsed: usage.ai_stories_generated_today,
+          limit: 2
+        }
+      };
+    }
+  }
+
+  async incrementAIStoryUsage(userId: string): Promise<void> {
+    await supabase.rpc('increment_ai_story_usage', { user_id: userId });
+  }
+
+  async checkAudioGenerationLimit(userId: string): Promise<{
+    canGenerate: boolean;
+    reason?: string;
+    usageInfo: {
+      monthlyUsed: number;
+      monthlyLimit: number;
+      resetDate?: Date;
+    };
+  }> {
+    const { isPremium } = await this.getUserSubscriptionStatus(userId);
+    
+    if (!isPremium) {
+      return {
+        canGenerate: false,
+        reason: 'Audio generation is a Premium feature. Upgrade to generate AI story audio!',
+        usageInfo: {
+          monthlyUsed: 0,
+          monthlyLimit: 0
+        }
+      };
+    }
+
+    // Get usage record
+    let { data: usage } = await supabase
+      .from('user_usage_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (!usage) {
+      const { data: newUsage } = await supabase
+        .from('user_usage_limits')
+        .insert({ user_id: userId })
+        .select()
+        .single();
+      usage = newUsage;
+    }
+
+    // Check if monthly reset is needed
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const lastResetMonth = usage.audio_generations_last_reset_date?.slice(0, 7);
+    
+    if (currentMonth !== lastResetMonth) {
+      await supabase
+        .from('user_usage_limits')
+        .update({
+          audio_generations_this_month: 0,
+          audio_generations_last_reset_date: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+      
+      usage.audio_generations_this_month = 0;
+    }
+
+    const canGenerate = usage.audio_generations_this_month < 2;
+    const nextReset = new Date();
+    nextReset.setMonth(nextReset.getMonth() + 1, 1);
+    nextReset.setHours(0, 0, 0, 0);
+
+    return {
+      canGenerate,
+      reason: canGenerate ? undefined : 'Monthly limit of 2 audio generations reached. Resets next month.',
+      usageInfo: {
+        monthlyUsed: usage.audio_generations_this_month,
+        monthlyLimit: 2,
+        resetDate: nextReset
+      }
+    };
+  }
+
+  async incrementAudioUsage(userId: string): Promise<void> {
+    await supabase.rpc('increment_audio_usage', { user_id: userId });
+  }
+
+  async checkStoryReadingLimit(userId: string): Promise<{
+    canReadFull: boolean;
+    maxProgressAllowed: number;
+    reason?: string;
+  }> {
+    const { isPremium } = await this.getUserSubscriptionStatus(userId);
+    
+    if (isPremium) {
+      return {
+        canReadFull: true,
+        maxProgressAllowed: 1.0,
+        reason: undefined
+      };
+    } else {
+      return {
+        canReadFull: false,
+        maxProgressAllowed: 0.2,
+        reason: 'Upgrade to Premium to read complete stories!'
+      };
+    }
+  }
+
+  async getUserUsageLimits(userId: string): Promise<UsageLimits> {
+    const [aiStoryCheck, audioCheck, readingCheck] = await Promise.all([
+      this.checkAIStoryGenerationLimit(userId),
+      this.checkAudioGenerationLimit(userId),
+      this.checkStoryReadingLimit(userId)
+    ]);
+
+    return {
+      aiStories: {
+        lifetimeUsed: aiStoryCheck.usageInfo.lifetimeUsed,
+        lifetimeLimit: aiStoryCheck.usageInfo.limit,
+        todayUsed: aiStoryCheck.usageInfo.todayUsed,
+        dailyLimit: aiStoryCheck.usageInfo.limit,
+        canGenerate: aiStoryCheck.canGenerate,
+        resetTime: aiStoryCheck.usageInfo.resetTime
+      },
+      audioGeneration: {
+        monthlyUsed: audioCheck.usageInfo.monthlyUsed,
+        monthlyLimit: audioCheck.usageInfo.monthlyLimit,
+        canGenerate: audioCheck.canGenerate,
+        resetDate: audioCheck.usageInfo.resetDate
+      },
+      storyReading: {
+        canReadFull: readingCheck.canReadFull,
+        maxProgressAllowed: readingCheck.maxProgressAllowed
+      }
+    };
+  }
+}
+
+export const subscriptionService = new SubscriptionService();
+```
+
+#### Step 4.6: Create Database Functions
+- [ ] Create Supabase functions for atomic usage updates
+```sql
+-- Function to increment AI story usage atomically
+CREATE OR REPLACE FUNCTION increment_ai_story_usage(user_id UUID)
+RETURNS void AS $$
+BEGIN
+  INSERT INTO user_usage_limits (user_id, ai_stories_generated_lifetime, ai_stories_generated_today, updated_at)
+  VALUES (user_id, 1, 1, timezone('utc'::text, now()))
+  ON CONFLICT (user_id) 
+  DO UPDATE SET 
+    ai_stories_generated_lifetime = user_usage_limits.ai_stories_generated_lifetime + 1,
+    ai_stories_generated_today = user_usage_limits.ai_stories_generated_today + 1,
+    updated_at = timezone('utc'::text, now());
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to increment audio usage atomically
+CREATE OR REPLACE FUNCTION increment_audio_usage(user_id UUID)
+RETURNS void AS $$
+BEGIN
+  INSERT INTO user_usage_limits (user_id, audio_generations_this_month, updated_at)
+  VALUES (user_id, 1, timezone('utc'::text, now()))
+  ON CONFLICT (user_id) 
+  DO UPDATE SET 
+    audio_generations_this_month = user_usage_limits.audio_generations_this_month + 1,
+    updated_at = timezone('utc'::text, now());
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permissions
+GRANT EXECUTE ON FUNCTION increment_ai_story_usage(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION increment_audio_usage(UUID) TO authenticated;
+```
+
+### Service Integration Updates
+
+#### Step 4.7: Update Existing Services
+- [ ] Update `services/personalizedStoryService.ts`
+```typescript
+// Replace the limit check in createPersonalizedStory()
+const limitCheck = await subscriptionService.checkAIStoryGenerationLimit(userId);
+if (!limitCheck.canGenerate) {
+  throw new Error(limitCheck.reason || 'Cannot generate story');
+}
+
+// After successful generation
+await subscriptionService.incrementAIStoryUsage(userId);
+```
+
+- [ ] Update `services/audioService.ts`
+```typescript
+// Replace canGenerateAudio() method
+async canGenerateAudio(): Promise<{ canGenerate: boolean; reason?: string }> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { canGenerate: false, reason: 'Not authenticated' };
+  
+  return await subscriptionService.checkAudioGenerationLimit(user.id);
+}
+
+// After successful audio generation
+async generatePersonalizedStoryAudio(storyText: string, personalizedStoryId: string, voicePreference: string) {
+  const limitCheck = await this.canGenerateAudio();
+  if (!limitCheck.canGenerate) {
+    throw new Error(limitCheck.reason);
+  }
+
+  // ... existing generation logic ...
+
+  // After successful generation
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    await subscriptionService.incrementAudioUsage(user.id);
+  }
+
+  return result;
+}
+```
+
+### Frontend Implementation
+
+#### Step 4.8: Create Paywall Components
+- [ ] Create `components/paywall/PaywallScreen.tsx`
+```typescript
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { router } from 'expo-router';
+import { revenueCatService } from '@/services/revenueCatService';
+import { LinearGradient } from 'expo-linear-gradient';
+
+export default function PaywallScreen() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      const availableProducts = await revenueCatService.getProducts();
+      setProducts(availableProducts);
+    } catch (error) {
+      console.error('Error loading products:', error);
+    }
+  };
+
+  const handlePurchase = async (productId: string) => {
+    try {
+      setLoading(true);
+      await revenueCatService.purchaseProduct(productId);
+      Alert.alert('Success!', 'Welcome to Premium! 🎉', [
+        { text: 'Continue', onPress: () => router.back() }
+      ]);
+    } catch (error) {
+      Alert.alert('Purchase Failed', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    try {
+      setLoading(true);
+      await revenueCatService.restorePurchases();
+      Alert.alert('Restored!', 'Your purchases have been restored.');
+    } catch (error) {
+      Alert.alert('Restore Failed', 'No purchases found to restore.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <ScrollView style={styles.container}>
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.header}
+      >
+        <Text style={styles.title}>✨ Unlock Premium Features</Text>
+        <Text style={styles.subtitle}>Give your child the complete Taily experience</Text>
+      </LinearGradient>
+
+      <View style={styles.featuresContainer}>
+        <FeatureItem 
+          icon="🤖" 
+          title="2 AI Stories Daily" 
+          description="Generate personalized stories every day featuring your child as the hero"
+          highlight="vs. 2 lifetime stories"
+        />
+        <FeatureItem 
+          icon="🎵" 
+          title="2 Audio Stories Monthly" 
+          description="Listen to AI-generated stories with professional voice narration"
+          highlight="Exclusive to Premium"
+        />
+        <FeatureItem 
+          icon="📖" 
+          title="Full Story Access" 
+          description="Read complete stories without any limitations"
+          highlight="vs. 20% preview only"
+        />
+        <FeatureItem 
+          icon="🎯" 
+          title="Daily Story Access" 
+          description="Continue enjoying our curated daily stories"
+          highlight="Always free"
+        />
+      </View>
+
+      <View style={styles.pricingContainer}>
+        <TouchableOpacity 
+          style={styles.purchaseButton}
+          onPress={() => handlePurchase('premium_monthly')}
+          disabled={loading}
+        >
+          <Text style={styles.purchaseButtonText}>
+            Start Premium - $4.99/month
+          </Text>
+          <Text style={styles.purchaseButtonSubtext}>
+            Cancel anytime
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.footer}>
+        <TouchableOpacity onPress={handleRestore} disabled={loading}>
+          <Text style={styles.restoreText}>Restore Purchases</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={() => router.back()} disabled={loading}>
+          <Text style={styles.cancelText}>Maybe Later</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+  );
+}
+
+interface FeatureItemProps {
+  icon: string;
+  title: string;
+  description: string;
+  highlight: string;
+}
+
+function FeatureItem({ icon, title, description, highlight }: FeatureItemProps) {
+  return (
+    <View style={styles.featureItem}>
+      <Text style={styles.featureIcon}>{icon}</Text>
+      <View style={styles.featureContent}>
+        <Text style={styles.featureTitle}>{title}</Text>
+        <Text style={styles.featureDescription}>{description}</Text>
+        <Text style={styles.featureHighlight}>{highlight}</Text>
+      </View>
+    </View>
+  );
+}
+```
+
+- [ ] Create `components/paywall/PaywallTrigger.tsx`
+```typescript
+import React from 'react';
+import { View, Text, TouchableOpacity, Modal } from 'react-native';
+import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+
+interface PaywallTriggerProps {
+  visible: boolean;
+  onClose: () => void;
+  feature: 'ai_story' | 'audio_generation' | 'full_reading';
+  customMessage?: string;
+}
+
+export function PaywallTrigger({ visible, onClose, feature, customMessage }: PaywallTriggerProps) {
+  const getFeatureDetails = () => {
+    switch (feature) {
+      case 'ai_story':
+        return {
+          icon: '🤖',
+          title: 'More AI Stories Available',
+          message: customMessage || 'You\'ve used your 2 lifetime AI stories. Upgrade to Premium for 2 new stories every day!',
+          benefits: ['2 AI stories daily', 'Unlimited story reading', '2 monthly audio generations']
+        };
+      case 'audio_generation':
+        return {
+          icon: '🎵',
+          title: 'Audio Generation',
+          message: customMessage || 'Audio generation is a Premium feature. Upgrade to bring your stories to life!',
+          benefits: ['2 audio stories monthly', '2 AI stories daily', 'Unlimited story reading']
+        };
+      case 'full_reading':
+        return {
+          icon: '📖',
+          title: 'Read the Full Story',
+          message: customMessage || 'Upgrade to Premium to read the complete story without limitations!',
+          benefits: ['Full story access', '2 AI stories daily', '2 monthly audio generations']
+        };
+      default:
+        return {
+          icon: '✨',
+          title: 'Premium Feature',
+          message: 'This feature requires Premium subscription.',
+          benefits: ['All premium features']
+        };
+    }
+  };
+
+  const details = getFeatureDetails();
+
+  const handleUpgrade = () => {
+    onClose();
+    router.push('/paywall');
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.overlay}>
+        <View style={styles.container}>
+          <LinearGradient
+            colors={['#667eea', '#764ba2']}
+            style={styles.header}
+          >
+            <Text style={styles.icon}>{details.icon}</Text>
+            <Text style={styles.title}>{details.title}</Text>
+          </LinearGradient>
+          
+          <View style={styles.content}>
+            <Text style={styles.message}>{details.message}</Text>
+            
+            <View style={styles.benefitsList}>
+              {details.benefits.map((benefit, index) => (
+                <View key={index} style={styles.benefitItem}>
+                  <Text style={styles.checkmark}>✓</Text>
+                  <Text style={styles.benefitText}>{benefit}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+          
+          <View style={styles.buttons}>
+            <TouchableOpacity 
+              style={styles.upgradeButton}
+              onPress={handleUpgrade}
+            >
+              <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.cancelButton}
+              onPress={onClose}
+            >
+              <Text style={styles.cancelButtonText}>Maybe Later</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+```
+
+#### Step 4.9: Create Usage Display Components
+- [ ] Create `components/subscription/UsageIndicator.tsx`
+```typescript
+import React, { useEffect, useState } from 'react';
+import { View, Text } from 'react-native';
+import { subscriptionService, UsageLimits } from '@/services/subscriptionService';
+import { useUser } from '@/hooks/useUser';
+
+interface UsageIndicatorProps {
+  type: 'ai_stories' | 'audio_generation';
+  compact?: boolean;
+}
+
+export function UsageIndicator({ type, compact = false }: UsageIndicatorProps) {
+  const { user } = useUser();
+  const [usage, setUsage] = useState<UsageLimits | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadUsage();
+    }
+  }, [user]);
+
+  const loadUsage = async () => {
+    try {
+      const usageLimits = await subscriptionService.getUserUsageLimits(user.id);
+      setUsage(usageLimits);
+    } catch (error) {
+      console.error('Error loading usage:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading || !usage) {
+    return null;
+  }
+
+  if (type === 'ai_stories') {
+    const { aiStories } = usage;
+    const progress = aiStories.dailyLimit > 0 
+      ? aiStories.todayUsed / aiStories.dailyLimit 
+      : aiStories.lifetimeUsed / aiStories.lifetimeLimit;
+
+    return (
+      <View style={compact ? styles.compactContainer : styles.container}>
+        <Text style={styles.label}>AI Stories</Text>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+          </View>
+          <Text style={styles.usageText}>
+            {aiStories.dailyLimit > 0 
+              ? `${aiStories.todayUsed}/${aiStories.dailyLimit} today`
+              : `${aiStories.lifetimeUsed}/${aiStories.lifetimeLimit} lifetime`
+            }
+          </Text>
+        </View>
+        {aiStories.resetTime && (
+          <Text style={styles.resetText}>
+            Resets {formatResetTime(aiStories.resetTime)}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
+  if (type === 'audio_generation') {
+    const { audioGeneration } = usage;
+    const progress = audioGeneration.monthlyUsed / audioGeneration.monthlyLimit;
+
+    return (
+      <View style={compact ? styles.compactContainer : styles.container}>
+        <Text style={styles.label}>Audio Generation</Text>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+          </View>
+          <Text style={styles.usageText}>
+            {audioGeneration.monthlyUsed}/{audioGeneration.monthlyLimit} this month
+          </Text>
+        </View>
+        {audioGeneration.resetDate && (
+          <Text style={styles.resetText}>
+            Resets {formatResetTime(audioGeneration.resetDate)}
+          </Text>
+        )}
+      </View>
+    );
+  }
+
+  return null;
+}
+
+function formatResetTime(date: Date): string {
+  const now = new Date();
+  const diff = date.getTime() - now.getTime();
+  const hours = Math.ceil(diff / (1000 * 60 * 60));
+  
+  if (hours <= 24) {
+    return `in ${hours} hour${hours !== 1 ? 's' : ''}`;
+  }
+  
+  const days = Math.ceil(hours / 24);
+  return `in ${days} day${days !== 1 ? 's' : ''}`;
+}
+```
+
+#### Step 4.10: Create Subscription Context
+- [ ] Create `context/SubscriptionContext.tsx`
+```typescript
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { subscriptionService, SubscriptionStatus } from '@/services/subscriptionService';
+import { revenueCatService } from '@/services/revenueCatService';
+import { useUser } from '@/hooks/useUser';
+
+interface SubscriptionContextType {
+  subscription: SubscriptionStatus | null;
+  loading: boolean;
+  refreshSubscription: () => Promise<void>;
+}
+
+const SubscriptionContext = createContext<SubscriptionContextType>({
+  subscription: null,
+  loading: true,
+  refreshSubscription: async () => {}
+});
+
+export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useUser();
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      initializeSubscription();
+    } else {
+      setSubscription(null);
+      setLoading(false);
+    }
+  }, [user]);
+
+  const initializeSubscription = async () => {
+    try {
+      // Initialize RevenueCat with user
+      await revenueCatService.identifyUser(user.id);
+      
+      // Sync subscription status
+      await revenueCatService.syncSubscriptionStatus();
+      
+      // Load current status
+      await refreshSubscription();
+    } catch (error) {
+      console.error('Error initializing subscription:', error);
+      setLoading(false);
+    }
+  };
+
+  const refreshSubscription = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const status = await subscriptionService.getUserSubscriptionStatus(user.id);
+      setSubscription(status);
+    } catch (error) {
+      console.error('Error refreshing subscription:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SubscriptionContext.Provider value={{
+      subscription,
+      loading,
+      refreshSubscription
+    }}>
+      {children}
+    </SubscriptionContext.Provider>
+  );
+}
+
+export const useSubscription = () => {
+  const context = useContext(SubscriptionContext);
+  if (!context) {
+    throw new Error('useSubscription must be used within SubscriptionProvider');
+  }
+  return context;
+};
+```
+
+### Integration Points
+
+#### Step 4.11: Update Story Reading Components
+- [ ] Update story reading components to check reading limits
+```typescript
+// In story reading components
+const [showPaywall, setShowPaywall] = useState(false);
+const [paywallFeature, setPaywallFeature] = useState<'full_reading'>('full_reading');
+
+const handleProgressUpdate = async (newProgress: number) => {
+  const { canReadFull, maxProgressAllowed } = await subscriptionService.checkStoryReadingLimit(user.id);
+  
+  if (!canReadFull && newProgress > maxProgressAllowed) {
+    setShowPaywall(true);
+    setPaywallFeature('full_reading');
+    return; // Don't update progress beyond limit
+  }
+  
+  // Update progress normally
+  updateProgress(newProgress);
+};
+
+return (
+  <>
+    {/* Story content */}
+    <PaywallTrigger 
+      visible={showPaywall}
+      onClose={() => setShowPaywall(false)}
+      feature={paywallFeature}
+    />
+  </>
+);
+```
+
+#### Step 4.12: Update AI Story Generation
+- [ ] Update AI story generation to check limits
+```typescript
+// In AI story generation components
+const handleGenerateStory = async () => {
+  const limitCheck = await subscriptionService.checkAIStoryGenerationLimit(user.id);
+  
+  if (!limitCheck.canGenerate) {
+    setShowPaywall(true);
+    setPaywallFeature('ai_story');
+    setPaywallMessage(limitCheck.reason);
+    return;
+  }
+  
+  // Proceed with generation
+  generateStory();
+};
+```
+
+#### Step 4.13: Update Audio Generation
+- [ ] Update audio generation to check limits
+```typescript
+// In audio generation components
+const handleGenerateAudio = async () => {
+  const limitCheck = await subscriptionService.checkAudioGenerationLimit(user.id);
+  
+  if (!limitCheck.canGenerate) {
+    setShowPaywall(true);
+    setPaywallFeature('audio_generation');
+    setPaywallMessage(limitCheck.reason);
+    return;
+  }
+  
+  // Proceed with audio generation
+  generateAudio();
+};
+```
+
+### App Store Configuration
+
+#### Step 4.14: RevenueCat Dashboard Setup
+- [ ] Create RevenueCat account and project
+- [ ] Set up products:
+  - `premium_monthly` - $4.99/month
+  - `premium_yearly` - $49.99/year (optional)
+- [ ] Create entitlements:
+  - `premium` - Access to all premium features
+- [ ] Configure webhook URL for Supabase integration
+- [ ] Set up iOS and Android API keys
+
+#### Step 4.15: App Store Connect (iOS)
+- [ ] Create in-app purchase products:
+  - Auto-renewable subscription: `premium_monthly`
+  - Set pricing: $4.99/month
+  - Configure subscription groups
+  - Submit for review
+
+#### Step 4.16: Google Play Console (Android)
+- [ ] Create subscription products
+- [ ] Set up billing integration
+- [ ] Configure pricing and availability
+
+### Environment Configuration
+
+#### Step 4.17: Environment Variables
+- [ ] Add to `.env`:
+```
+EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY=your_ios_api_key
+EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY=your_android_api_key
+```
+
+#### Step 4.18: App Configuration
+- [ ] Update `app.json`:
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "react-native-purchases",
+        {
+          "useFrameworks": "static"
+        }
+      ]
+    ]
+  }
+}
+```
+
+### Testing Checklist
+
+#### Free User Testing
+- [ ] Can view daily story completely ✓
+- [ ] Can generate exactly 2 AI stories lifetime
+- [ ] Story reading stops at 20% progress and shows paywall
+- [ ] Cannot generate audio - shows paywall immediately
+- [ ] Paywall appears with correct messaging for each feature
+- [ ] Usage indicators show correct limits and progress
+
+#### Premium User Testing  
+- [ ] Can generate 2 AI stories daily (resets at midnight)
+- [ ] Can generate 2 audio stories monthly (resets monthly)
+- [ ] Can read full story content (100% progress)
+- [ ] Daily story access maintained (always free)
+- [ ] Usage indicators show premium limits
+- [ ] Subscription status displays correctly
+
+#### Purchase Flow Testing
+- [ ] RevenueCat purchase flow completes successfully
+- [ ] Subscription status syncs to Supabase immediately
+- [ ] Features unlock immediately after purchase
+- [ ] Restore purchases works correctly
+- [ ] Subscription expiry handling works properly
+- [ ] Error handling for failed purchases
+
+#### Edge Cases
+- [ ] Network connectivity issues during purchase
+- [ ] App backgrounding during purchase flow
+- [ ] Subscription renewal handling
+- [ ] Subscription cancellation handling
+- [ ] Multiple device synchronization
+
+---
+
 ## Implementation Order & Timeline
 
 ### Phase 1: AI-Personalized Stories (Week 1-2)
@@ -562,6 +1742,13 @@ const renderContent = () => {
 3. Sound effect system
 4. UI implementation
 5. Performance optimization
+
+### Phase 4: RevenueCat Paywall System (Week 7-8)
+1. RevenueCat setup
+2. Subscription management
+3. Usage tracking
+4. UI integration
+5. Testing & optimization
 
 ---
 
