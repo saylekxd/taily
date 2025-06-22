@@ -133,13 +133,6 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-    <Button title='Try!' onPress={ () => { 
-      console.log('Button pressed - sending error to Sentry...');
-      Sentry.captureException(new Error('First error'));
-      console.log('Error sent to Sentry successfully!');
-      alert('Error sent to Sentry! Check your Sentry dashboard.');
-    }}/>
-
       {/* Personalized Stories Section */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
