@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Sparkles, Plus } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useI18n } from '@/hooks/useI18n';
@@ -41,13 +41,11 @@ export default function CreatePersonalizedStoryCard({
       <View style={styles.content}>
         {/* Icon */}
         <View style={styles.iconContainer}>
-          <View style={styles.iconBackground}>
-            {canGenerate ? (
-              <Plus size={24} color={colors.white} />
-            ) : (
-              <Sparkles size={24} color={colors.white} />
-            )}
-          </View>
+          <Image 
+            source={require('@/assets/images/badgetaily_photo.png')}
+            style={styles.iconImage}
+            resizeMode="contain"
+          />
         </View>
         
         {/* Text content */}
@@ -133,21 +131,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
-  iconBackground: {
+  iconImage: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.accent,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   textContainer: {
     alignItems: 'center',
