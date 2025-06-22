@@ -74,6 +74,7 @@
   "home": {
     "title": "Home",
     "welcomeBack": "Welcome back, {{name}}!",
+    "announcements": "Announcements",
     "continueReading": "Continue Reading",
     "recommendedForYou": "Recommended for You",
     "newStories": "New Stories",

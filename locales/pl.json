@@ -74,6 +74,7 @@
   "home": {
     "title": "Główna",
     "welcomeBack": "Witaj z powrotem, {{name}}!",
+    "announcements": "Ogłoszenia",
     "continueReading": "Kontynuuj Czytanie",
     "recommendedForYou": "Polecane dla Ciebie",
     "newStories": "Nowe Historie",

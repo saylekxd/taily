@@ -26,6 +26,9 @@ import { getDailyStory } from '@/services/dailyStoryService';
 import { getUserPersonalizedStories, deletePersonalizedStory, getUserStoryLimitInfo } from '@/services/personalizedStoryService';
 import { Story } from '@/types';
 import { PersonalizedStory } from '@/services/personalizedStoryService';
+import { announcementService, Announcement } from '@/services/announcementService';
+import AnnouncementContainer from '@/components/AnnouncementContainer';
+import AnnouncementModal from '@/components/AnnouncementModal';
 import * as Sentry from '@sentry/react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -39,6 +42,9 @@ export default function HomeScreen() {
   const [inProgressStories, setInProgressStories] = useState<Story[]>([]);
   const [personalizedStories, setPersonalizedStories] = useState<PersonalizedStory[]>([]);
   const [dailyStory, setDailyStory] = useState<Story | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showGenerator, setShowGenerator] = useState(false);
   const [limitInfo, setLimitInfo] = useState({ currentCount: 0, maxCount: 2, canGenerate: true });
@@ -72,6 +78,16 @@ export default function HomeScreen() {
       // Get limit info
       const info = await getUserStoryLimitInfo(user.id);
       setLimitInfo(info);
+      
+      // Get announcements
+      const userAge = profile?.age;
+      const userLanguage = profile?.language || 'en';
+      const announcementsData = await announcementService.getActiveAnnouncements(
+        userAge, 
+        userLanguage, 
+        'active' // You can customize user segments
+      );
+      setAnnouncements(announcementsData);
     } catch (error) {
       console.error('Error loading stories:', error);
     } finally {
@@ -112,6 +128,16 @@ export default function HomeScreen() {
     loadStories();
   };
 
+  const handleAnnouncementPress = (announcement: Announcement) => {
+    setSelectedAnnouncement(announcement);
+    setShowAnnouncementModal(true);
+  };
+
+  const handleCloseAnnouncementModal = () => {
+    setShowAnnouncementModal(false);
+    setSelectedAnnouncement(null);
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centerContent, { paddingTop: insets.top }]}>
@@ -132,6 +158,15 @@ export default function HomeScreen() {
           {t('home.welcomeBack', { name: profile?.child_name || t('profile.explorer') })}
         </Text>
       </View>
+
+      {/* Announcements Section */}
+      {announcements.length > 0 && (
+        <AnnouncementContainer
+          announcements={announcements}
+          onAnnouncementPress={handleAnnouncementPress}
+          title={t('home.announcements')}
+        />
+      )}
 
       {/* Personalized Stories Section */}
       <View style={styles.sectionContainer}>
@@ -261,6 +296,13 @@ export default function HomeScreen() {
         visible={showGenerator}
         onClose={() => setShowGenerator(false)}
         onStoryGenerated={handleStoryGenerated}
+      />
+
+      {/* Announcement Modal */}
+      <AnnouncementModal
+        visible={showAnnouncementModal}
+        announcement={selectedAnnouncement}
+        onClose={handleCloseAnnouncementModal}
       />
     </ScrollView>
   );
