@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',
-    zIndex: 1, // Lower z-index so navbar stays on top
+    zIndex: 1, // Above story content but below StoryControls
   },
   completionText: {
     fontFamily: 'Nunito-ExtraBold',

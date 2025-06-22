@@ -293,6 +293,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    zIndex: 10,
   },
   progressContainer: {
     paddingHorizontal: 24,
