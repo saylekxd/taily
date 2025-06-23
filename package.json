@@ -40,6 +40,7 @@
     "expo-symbols": "~0.4.3",
     "expo-system-ui": "~5.0.9",
     "expo-web-browser": "~14.2.0",
+    "git": "^0.1.5",
     "glob": "^11.0.3",
     "i18n-js": "^4.5.1",
     "lucide-react-native": "^0.475.0",
