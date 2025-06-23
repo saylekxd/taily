@@ -17,61 +17,88 @@ export interface SpeechRecognitionConfig {
 
 class SpeechRecognitionService {
   private isListening = false;
+  private isInitialized = false;
+  private isDestroying = false;
   private onResultCallback?: (results: SpeechRecognitionResult[]) => void;
   private onErrorCallback?: (error: string) => void;
   private onStartCallback?: () => void;
   private onEndCallback?: () => void;
 
   constructor() {
-    this.initializeVoice();
+    // Don't initialize immediately - defer until first use
+    // This prevents crashes on app startup
+  }
+
+  private async ensureInitialized() {
+    if (!this.isInitialized && !this.isDestroying) {
+      this.initializeVoice();
+    }
   }
 
   private initializeVoice() {
     if (Platform.OS === 'web') {
       // Web implementation using Web Speech API
+      this.isInitialized = true;
       return;
     }
 
     try {
-      Voice.onSpeechStart = this.onSpeechStart;
-      Voice.onSpeechEnd = this.onSpeechEnd;
-      Voice.onSpeechError = this.onSpeechError;
-      Voice.onSpeechResults = this.onSpeechResults;
-      Voice.onSpeechPartialResults = this.onSpeechPartialResults;
+      // Only initialize if not already initialized
+      if (!this.isInitialized && !this.isDestroying) {
+        Voice.onSpeechStart = this.onSpeechStart;
+        Voice.onSpeechEnd = this.onSpeechEnd;
+        Voice.onSpeechError = this.onSpeechError;
+        Voice.onSpeechResults = this.onSpeechResults;
+        Voice.onSpeechPartialResults = this.onSpeechPartialResults;
+        this.isInitialized = true;
+      }
     } catch (error) {
       console.error('Failed to initialize Voice library:', error);
+      this.isInitialized = false;
     }
   }
 
   private onSpeechStart = () => {
+    if (this.isDestroying) return;
     console.log('Speech recognition started');
     this.onStartCallback?.();
   };
 
   private onSpeechEnd = () => {
+    if (this.isDestroying) return;
     console.log('Speech recognition ended');
     this.isListening = false;
     this.onEndCallback?.();
   };
 
   private onSpeechError = (error: any) => {
+    if (this.isDestroying) return;
     console.error('Speech recognition error:', error);
     this.isListening = false;
-    this.onErrorCallback?.(error.error?.message || 'Speech recognition error');
+    
+    // Extract error message safely
+    const errorMessage = error?.error?.message || error?.message || 'Speech recognition error';
+    
+    // Only report non-cancelled errors
+    if (!errorMessage.includes('cancelled') && !errorMessage.includes('203')) {
+      this.onErrorCallback?.(errorMessage);
+    }
   };
 
   private onSpeechResults = (event: any) => {
-    const results = event.value || [];
+    if (this.isDestroying) return;
+    const results = event?.value || [];
     this.processResults(results, false);
   };
 
   private onSpeechPartialResults = (event: any) => {
-    const results = event.value || [];
+    if (this.isDestroying) return;
+    const results = event?.value || [];
     this.processResults(results, true);
   };
 
   private processResults(results: string[], isPartial: boolean) {
-    if (!results || results.length === 0) return;
+    if (!results || results.length === 0 || this.isDestroying) return;
 
     const processedResults: SpeechRecognitionResult[] = results.map((result, index) => ({
       word: result.toLowerCase().trim(),
@@ -84,6 +111,9 @@ class SpeechRecognitionService {
 
   async requestPermissions(): Promise<boolean> {
     try {
+      // Ensure initialized before checking permissions
+      await this.ensureInitialized();
+
       if (Platform.OS === 'web') {
         // Check for Web Speech API support
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -98,9 +128,25 @@ class SpeechRecognitionService {
         throw new Error('Microphone permission denied');
       }
 
-      // Check if Voice is available
+      // Check if Voice is available with timeout
       try {
-        const available = await Voice.isAvailable();
+        const checkAvailability = new Promise<boolean>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Voice availability check timeout'));
+          }, 3000);
+
+          Voice.isAvailable()
+            .then((available) => {
+              clearTimeout(timeout);
+              resolve(Boolean(available));
+            })
+            .catch((error) => {
+              clearTimeout(timeout);
+              reject(error);
+            });
+        });
+
+        const available = await checkAvailability;
         if (!available) {
           throw new Error('Speech recognition not available on this device');
         }
@@ -119,6 +165,14 @@ class SpeechRecognitionService {
 
   async startListening(config: Partial<SpeechRecognitionConfig> = {}): Promise<boolean> {
     try {
+      // Ensure initialized before starting
+      await this.ensureInitialized();
+
+      if (this.isDestroying) {
+        console.log('Service is being destroyed, cannot start listening');
+        return false;
+      }
+
       if (this.isListening) {
         console.log('Already listening');
         return true;
@@ -140,6 +194,17 @@ class SpeechRecognitionService {
         maxAlternatives: 3,
         ...config,
       };
+
+      // Ensure previous session is stopped
+      try {
+        await Voice.stop();
+      } catch (stopError) {
+        // Ignore stop errors, just continue
+        console.log('Cleared previous session');
+      }
+
+      // Small delay to ensure clean state
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       await Voice.start(defaultConfig.language);
 
@@ -206,21 +271,27 @@ class SpeechRecognitionService {
 
   async stopListening(): Promise<void> {
     try {
-      if (!this.isListening) {
+      if (!this.isListening || this.isDestroying) {
         return;
       }
 
+      this.isListening = false;
+
       if (Platform.OS === 'web') {
         // Web implementation would stop the recognition here
-        this.isListening = false;
         this.onEndCallback?.();
         return;
       }
 
-      await Voice.stop();
-      this.isListening = false;
+      try {
+        await Voice.stop();
+      } catch (error) {
+        console.error('Failed to stop listening:', error);
+        // Continue even if stop fails
+      }
     } catch (error) {
       console.error('Failed to stop listening:', error);
+    } finally {
       this.isListening = false;
     }
   }
@@ -231,6 +302,9 @@ class SpeechRecognitionService {
     onStart?: () => void;
     onEnd?: () => void;
   }) {
+    // Ensure initialized when setting callbacks
+    this.ensureInitialized();
+    
     this.onResultCallback = callbacks.onResult;
     this.onErrorCallback = callbacks.onError;
     this.onStartCallback = callbacks.onStart;
@@ -238,16 +312,18 @@ class SpeechRecognitionService {
   }
 
   getIsListening(): boolean {
-    return this.isListening;
+    return this.isListening && !this.isDestroying;
   }
 
   async destroy(): Promise<void> {
     try {
+      this.isDestroying = true;
+
       if (this.isListening) {
         await this.stopListening();
       }
 
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== 'web' && this.isInitialized) {
         try {
           await Voice.destroy();
         } catch (error) {
@@ -261,10 +337,56 @@ class SpeechRecognitionService {
       this.onErrorCallback = undefined;
       this.onStartCallback = undefined;
       this.onEndCallback = undefined;
+
+      this.isInitialized = false;
     } catch (error) {
       console.error('Failed to destroy speech recognition:', error);
+    } finally {
+      this.isDestroying = false;
     }
   }
 }
 
-export const speechRecognitionService = new SpeechRecognitionService();
+// Create a lazy singleton that only initializes when first accessed
+let _instance: SpeechRecognitionService | null = null;
+
+export const speechRecognitionService = {
+  get instance(): SpeechRecognitionService {
+    if (!_instance) {
+      _instance = new SpeechRecognitionService();
+    }
+    return _instance;
+  },
+
+  // Proxy all methods to the instance
+  async requestPermissions(): Promise<boolean> {
+    return this.instance.requestPermissions();
+  },
+
+  async startListening(config?: Partial<SpeechRecognitionConfig>): Promise<boolean> {
+    return this.instance.startListening(config);
+  },
+
+  async stopListening(): Promise<void> {
+    return this.instance.stopListening();
+  },
+
+  setCallbacks(callbacks: {
+    onResult?: (results: SpeechRecognitionResult[]) => void;
+    onError?: (error: string) => void;
+    onStart?: () => void;
+    onEnd?: () => void;
+  }) {
+    return this.instance.setCallbacks(callbacks);
+  },
+
+  getIsListening(): boolean {
+    return this.instance.getIsListening();
+  },
+
+  async destroy(): Promise<void> {
+    const result = await this.instance.destroy();
+    _instance = null; // Clear the instance after destruction
+    return result;
+  }
+};
