@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.saylekxd.Tailyapp",
@@ -41,19 +41,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "metro": {
-      "sourceExts": [
-        "ts",
-        "tsx",
-        "js",
-        "jsx"
-      ],
-      "transformer": {
-        "sourceMap": {
-          "includeSources": true
-        }
-      }
     },
     "extra": {
       "router": {},

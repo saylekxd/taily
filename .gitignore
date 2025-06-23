@@ -15,6 +15,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# This is a bare React Native project with custom iOS code
+# android/ folder is not present - iOS only project
+android/
+
 # metro
 .metro-health-check*
 
