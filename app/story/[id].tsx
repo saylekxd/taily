@@ -11,6 +11,7 @@ import StoryContent from '@/components/StoryContent';
 import StoryControls from '@/components/StoryControls';
 import CompletionBanner from '@/components/CompletionBanner';
 import DetailedReaderView from '@/components/DetailedReaderView/index';
+import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
@@ -66,7 +67,7 @@ export default function StoryScreen() {
     personalized === 'true'
   );
   
-  // Use the extracted scroll tracking hook
+  // Use the extracted scroll tracking hook with paywall integration
   const {
     contentHeight,
     scrollViewHeight,
@@ -74,12 +75,16 @@ export default function StoryScreen() {
     handleScroll,
     handleContentSizeChange,
     handleScrollViewLayout,
+    showPaywall,
+    setShowPaywall,
+    paywallMessage,
   } = useScrollTracking(
     progress,
     setProgress,
     shouldScrollToProgress,
     setShouldScrollToProgress,
-    isMountedRef
+    isMountedRef,
+    personalized === 'true' // Pass isPersonalized flag
   );
   
   // Note: Speech synthesis is now handled within StoryControls component
@@ -220,6 +225,14 @@ export default function StoryScreen() {
         onProgressChange={handleDetailedReaderProgressChange}
         storyId={isPersonalizedStory ? undefined : story.id}
         personalizedStoryId={isPersonalizedStory ? story.id : undefined}
+      />
+
+      {/* Paywall Trigger for Reading Limits */}
+      <PaywallTrigger
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        feature="full_reading"
+        customMessage={paywallMessage}
       />
     </View>
   );

@@ -14,9 +14,11 @@ import {
 } from '@expo-google-fonts/quicksand';
 import { SplashScreen } from 'expo-router';
 import { AppProvider } from '@/context/AppContext';
+import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { revenueCatService } from '@/services/revenueCatService';
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
@@ -53,6 +55,20 @@ export default Sentry.wrap(function RootLayout() {
   useEffect(() => {
     if (fontError) throw fontError;
   }, [fontError]);
+
+  // Initialize RevenueCat on app startup
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        await revenueCatService.initialize();
+        console.log('RevenueCat initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize RevenueCat:', error);
+      }
+    };
+
+    initializeApp();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -125,24 +141,33 @@ export default Sentry.wrap(function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ 
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-          animation: 'fade',
-        }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="auth" options={{ headerShown: false }} />
-          <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="story/[id]" options={{ 
-            headerShown: true, 
-            headerTitle: '',
-            headerStyle: { backgroundColor: colors.background },
-            headerTintColor: colors.white,
-            presentation: 'modal'
-          }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
+        <SubscriptionProvider>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ 
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+            animation: 'fade',
+          }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="auth" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+            <Stack.Screen name="paywall" options={{ 
+              presentation: 'modal',
+              headerShown: true,
+              headerTitle: 'Upgrade to Premium',
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.white,
+            }} />
+            <Stack.Screen name="story/[id]" options={{ 
+              headerShown: true, 
+              headerTitle: '',
+              headerStyle: { backgroundColor: colors.background },
+              headerTintColor: colors.white,
+              presentation: 'modal'
+            }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+        </SubscriptionProvider>
       </AppProvider>
     </GestureHandlerRootView>
   );

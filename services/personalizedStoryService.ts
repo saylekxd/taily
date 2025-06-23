@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
-import { generatePersonalizedStory, generateCoverImageUrl, checkStoryGenerationLimit, StoryGenerationParams } from './aiStoryService';
+import { generatePersonalizedStory, generateCoverImageUrl, StoryGenerationParams } from './aiStoryService';
+import { subscriptionService } from './subscriptionService';
 import { Story, UserProfile } from '@/types';
 
 export interface PersonalizedStory extends Story {
@@ -16,10 +17,10 @@ export async function createPersonalizedStory(
   theme?: string
 ): Promise<PersonalizedStory> {
   try {
-    // Check if user can generate more stories
-    const limitCheck = await checkStoryGenerationLimit(userId);
+    // Check if user can generate more stories using the new subscription service
+    const limitCheck = await subscriptionService.checkAIStoryGenerationLimit(userId);
     if (!limitCheck.canGenerate) {
-      throw new Error(`You have reached the maximum limit of ${limitCheck.maxCount} personalized stories.`);
+      throw new Error(limitCheck.reason || 'Cannot generate story at this time.');
     }
 
     // Prepare generation parameters
@@ -57,6 +58,14 @@ export async function createPersonalizedStory(
     if (error) {
       console.error('Error saving personalized story:', error);
       throw new Error('Failed to save your personalized story. Please try again.');
+    }
+
+    // Increment usage counter after successful generation
+    try {
+      await subscriptionService.incrementAIStoryUsage(userId);
+    } catch (usageError) {
+      console.error('Error incrementing AI story usage:', usageError);
+      // Don't throw here as the story was already created successfully
     }
 
     return transformDbPersonalizedStoryToStory(data);
@@ -137,10 +146,18 @@ export async function deletePersonalizedStory(storyId: string, userId: string): 
 }
 
 /**
- * Get user's personalized story count and limit info
+ * Get user's personalized story count and limit info using subscription service
  */
-export async function getUserStoryLimitInfo(userId: string): Promise<{ currentCount: number; maxCount: number; canGenerate: boolean }> {
+export async function getUserStoryLimitInfo(userId: string): Promise<{ 
+  currentCount: number; 
+  maxCount: number; 
+  canGenerate: boolean;
+  todayUsed?: number;
+  isPremium?: boolean;
+  resetTime?: Date;
+}> {
   try {
+    // Get current count from database
     const { data, error, count } = await supabase
       .from('personalized_stories')
       .select('id', { count: 'exact' })
@@ -148,20 +165,27 @@ export async function getUserStoryLimitInfo(userId: string): Promise<{ currentCo
 
     if (error) {
       console.error('Error fetching story count:', error);
-      return { currentCount: 0, maxCount: 2, canGenerate: true };
     }
 
     const currentCount = count || 0;
-    const maxCount = 2;
+
+    // Get limit info from subscription service
+    const limitCheck = await subscriptionService.checkAIStoryGenerationLimit(userId);
     
     return {
       currentCount,
-      maxCount,
-      canGenerate: currentCount < maxCount
+      maxCount: limitCheck.usageInfo.limit,
+      canGenerate: limitCheck.canGenerate,
+      todayUsed: limitCheck.usageInfo.todayUsed,
+      resetTime: limitCheck.usageInfo.resetTime
     };
   } catch (error) {
     console.error('Error in getUserStoryLimitInfo:', error);
-    return { currentCount: 0, maxCount: 2, canGenerate: true };
+    return { 
+      currentCount: 0, 
+      maxCount: 2, 
+      canGenerate: false 
+    };
   }
 }
 
