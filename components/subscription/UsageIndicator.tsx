@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { subscriptionService, UsageLimits } from '@/services/subscriptionService';
-import { supabase } from '@/lib/supabase';
+import { useUser } from '@/hooks/useUser';
 
 interface UsageIndicatorProps {
   type: 'ai_stories' | 'audio_generation';
@@ -9,18 +9,20 @@ interface UsageIndicatorProps {
 }
 
 export function UsageIndicator({ type, compact = false }: UsageIndicatorProps) {
+  const { user } = useUser();
   const [usage, setUsage] = useState<UsageLimits | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadUsage();
-  }, []);
+    if (user) {
+      loadUsage();
+    }
+  }, [user]);
 
   const loadUsage = async () => {
+    if (!user) return;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const usageLimits = await subscriptionService.getUserUsageLimits(user.id);
       setUsage(usageLimits);
     } catch (error) {
@@ -31,11 +33,7 @@ export function UsageIndicator({ type, compact = false }: UsageIndicatorProps) {
   };
 
   if (loading || !usage) {
-    return (
-      <View style={compact ? styles.compactContainer : styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
+    return null;
   }
 
   if (type === 'ai_stories') {
@@ -44,28 +42,12 @@ export function UsageIndicator({ type, compact = false }: UsageIndicatorProps) {
       ? aiStories.todayUsed / aiStories.dailyLimit 
       : aiStories.lifetimeUsed / aiStories.lifetimeLimit;
 
-    const progressPercentage = Math.min(progress * 100, 100);
-
     return (
       <View style={compact ? styles.compactContainer : styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.label}>🤖 AI Stories</Text>
-          {!aiStories.canGenerate && (
-            <View style={styles.limitBadge}>
-              <Text style={styles.limitText}>LIMIT</Text>
-            </View>
-          )}
-        </View>
-        
+        <Text style={styles.label}>AI Stories</Text>
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View style={[
-              styles.progressFill, 
-              { 
-                width: `${progressPercentage}%`,
-                backgroundColor: aiStories.canGenerate ? '#4ade80' : '#ef4444'
-              }
-            ]} />
+            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
           <Text style={styles.usageText}>
             {aiStories.dailyLimit > 0 
@@ -74,19 +56,9 @@ export function UsageIndicator({ type, compact = false }: UsageIndicatorProps) {
             }
           </Text>
         </View>
-        
         {aiStories.resetTime && (
           <Text style={styles.resetText}>
             Resets {formatResetTime(aiStories.resetTime)}
-          </Text>
-        )}
-        
-        {!aiStories.canGenerate && !compact && (
-          <Text style={styles.upgradeHint}>
-            {aiStories.dailyLimit > 0 
-              ? 'Daily limit reached'
-              : 'Upgrade to Premium for daily stories!'
-            }
           </Text>
         )}
       </View>
@@ -99,47 +71,23 @@ export function UsageIndicator({ type, compact = false }: UsageIndicatorProps) {
       ? audioGeneration.monthlyUsed / audioGeneration.monthlyLimit 
       : 0;
 
-    const progressPercentage = Math.min(progress * 100, 100);
-
     return (
       <View style={compact ? styles.compactContainer : styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.label}>🎵 Audio Generation</Text>
-          {!audioGeneration.canGenerate && (
-            <View style={styles.limitBadge}>
-              <Text style={styles.limitText}>
-                {audioGeneration.monthlyLimit === 0 ? 'PREMIUM' : 'LIMIT'}
-              </Text>
-            </View>
-          )}
+        <Text style={styles.label}>Audio Generation</Text>
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+          </View>
+          <Text style={styles.usageText}>
+            {audioGeneration.monthlyLimit > 0 
+              ? `${audioGeneration.monthlyUsed}/${audioGeneration.monthlyLimit} this month`
+              : 'Premium feature only'
+            }
+          </Text>
         </View>
-        
-        {audioGeneration.monthlyLimit > 0 ? (
-          <>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${progressPercentage}%`,
-                    backgroundColor: audioGeneration.canGenerate ? '#4ade80' : '#ef4444'
-                  }
-                ]} />
-              </View>
-              <Text style={styles.usageText}>
-                {audioGeneration.monthlyUsed}/{audioGeneration.monthlyLimit} this month
-              </Text>
-            </View>
-            
-            {audioGeneration.resetDate && (
-              <Text style={styles.resetText}>
-                Resets {formatResetTime(audioGeneration.resetDate)}
-              </Text>
-            )}
-          </>
-        ) : (
-          <Text style={styles.premiumOnlyText}>
-            Premium feature - Upgrade to access
+        {audioGeneration.resetDate && (
+          <Text style={styles.resetText}>
+            Resets {formatResetTime(audioGeneration.resetDate)}
           </Text>
         )}
       </View>
@@ -152,9 +100,6 @@ export function UsageIndicator({ type, compact = false }: UsageIndicatorProps) {
 function formatResetTime(date: Date): string {
   const now = new Date();
   const diff = date.getTime() - now.getTime();
-  
-  if (diff <= 0) return 'soon';
-  
   const hours = Math.ceil(diff / (1000 * 60 * 60));
   
   if (hours <= 24) {
@@ -162,66 +107,49 @@ function formatResetTime(date: Date): string {
   }
   
   const days = Math.ceil(hours / 24);
-  if (days <= 30) {
-    return `in ${days} day${days !== 1 ? 's' : ''}`;
-  }
-  
-  const months = Math.ceil(days / 30);
-  return `in ${months} month${months !== 1 ? 's' : ''}`;
+  return `in ${days} day${days !== 1 ? 's' : ''}`;
 }
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
-    padding: 16,
-    borderRadius: 12,
-    marginVertical: 8,
+    borderRadius: 10,
+    padding: 15,
+    marginVertical: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   compactContainer: {
     backgroundColor: 'white',
-    padding: 12,
     borderRadius: 8,
-    marginVertical: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    padding: 10,
+    marginVertical: 5,
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1a1a1a',
-  },
-  limitBadge: {
-    backgroundColor: '#ef4444',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  limitText: {
-    color: 'white',
-    fontSize: 10,
     fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
   },
   progressContainer: {
-    marginBottom: 8,
+    marginBottom: 5,
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#E0E0E0',
     borderRadius: 4,
-    marginBottom: 8,
     overflow: 'hidden',
+    marginBottom: 8,
   },
   progressFill: {
     height: '100%',
+    backgroundColor: '#667eea',
     borderRadius: 4,
   },
   usageText: {
@@ -233,23 +161,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     fontStyle: 'italic',
-  },
-  upgradeHint: {
-    fontSize: 12,
-    color: '#667eea',
-    fontWeight: '500',
-    marginTop: 4,
-  },
-  premiumOnlyText: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
+    marginTop: 5,
   },
 }); 

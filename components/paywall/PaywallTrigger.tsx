@@ -79,20 +79,16 @@ export function PaywallTrigger({ visible, onClose, feature, customMessage }: Pay
                 </View>
               ))}
             </View>
-
-            <View style={styles.pricingPreview}>
-              <Text style={styles.pricingText}>Starting at $3.99/month</Text>
-              <Text style={styles.pricingSubtext}>Cancel anytime</Text>
-            </View>
           </View>
           
           <View style={styles.buttons}>
-            <TouchableOpacity 
-              style={styles.upgradeButton}
-              onPress={handleUpgrade}
-            >
-              <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
-            </TouchableOpacity>
+                    <TouchableOpacity 
+          style={styles.upgradeButton}
+          onPress={handleUpgrade}
+        >
+          <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+          <Text style={styles.upgradeButtonSubtext}>Starting at $3.33/month</Text>
+        </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.cancelButton}
@@ -118,23 +114,17 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: 'white',
     borderRadius: 20,
+    overflow: 'hidden',
     width: '100%',
     maxWidth: 400,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   header: {
-    paddingVertical: 30,
-    paddingHorizontal: 20,
+    padding: 30,
     alignItems: 'center',
   },
   icon: {
     fontSize: 48,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   title: {
     fontSize: 24,
@@ -143,80 +133,61 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   content: {
-    paddingHorizontal: 24,
-    paddingVertical: 24,
+    padding: 20,
   },
   message: {
     fontSize: 16,
+    lineHeight: 24,
     color: '#333',
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   benefitsList: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   checkmark: {
     fontSize: 16,
-    color: '#4ade80',
+    color: '#4CAF50',
     fontWeight: 'bold',
-    marginRight: 12,
-    width: 20,
+    marginRight: 10,
   },
   benefitText: {
-    fontSize: 15,
+    fontSize: 16,
     color: '#333',
     flex: 1,
   },
-  pricingPreview: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  pricingText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#667eea',
-    marginBottom: 4,
-  },
-  pricingSubtext: {
-    fontSize: 14,
-    color: '#666',
-  },
   buttons: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    padding: 20,
+    paddingTop: 0,
   },
   upgradeButton: {
     backgroundColor: '#667eea',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 15,
+    borderRadius: 10,
+    marginBottom: 10,
     alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   upgradeButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
   },
+  upgradeButtonSubtext: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 14,
+    marginTop: 2,
+  },
   cancelButton: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#999',
+    color: '#666',
     fontSize: 16,
   },
 }); 

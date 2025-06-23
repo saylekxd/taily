@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { revenueCatService } from '@/services/revenueCatService';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function PaywallScreen() {
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual'); // Default to annual for better value
 
   useEffect(() => {
     loadProducts();
@@ -21,7 +22,9 @@ export default function PaywallScreen() {
     }
   };
 
-  const handlePurchase = async (productId: string) => {
+  const handlePurchase = async () => {
+    const productId = selectedPlan === 'monthly' ? 'premium_monthly' : 'premium_annual';
+    
     try {
       setLoading(true);
       await revenueCatService.purchaseProduct(productId);
@@ -32,6 +35,24 @@ export default function PaywallScreen() {
       Alert.alert('Purchase Failed', error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getPlanDetails = () => {
+    if (selectedPlan === 'monthly') {
+      return {
+        price: '$4.99',
+        period: 'month',
+        totalYear: '$59.88',
+        savings: null
+      };
+    } else {
+      return {
+        price: '$39.99',
+        period: 'year',
+        totalYear: '$39.99',
+        savings: '$19.89' // 33% discount compared to monthly
+      };
     }
   };
 
@@ -85,32 +106,83 @@ export default function PaywallScreen() {
       </View>
 
       <View style={styles.pricingContainer}>
+        {/* Plan Selection */}
+        <View style={styles.planSelector}>
+          <TouchableOpacity 
+            style={[
+              styles.planOption, 
+              selectedPlan === 'annual' && styles.selectedPlan
+            ]}
+            onPress={() => setSelectedPlan('annual')}
+          >
+            <View style={styles.planHeader}>
+              <Text style={[
+                styles.planTitle,
+                selectedPlan === 'annual' && styles.selectedPlanText
+              ]}>
+                Annual Plan
+              </Text>
+              {selectedPlan === 'annual' && (
+                <View style={styles.savingsBadge}>
+                  <Text style={styles.savingsText}>Save 33%</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[
+              styles.planPrice,
+              selectedPlan === 'annual' && styles.selectedPlanText
+            ]}>
+              $39.99/year
+            </Text>
+            <Text style={[
+              styles.planSubtext,
+              selectedPlan === 'annual' && styles.selectedPlanSubtext
+            ]}>
+              $3.33/month
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[
+              styles.planOption, 
+              selectedPlan === 'monthly' && styles.selectedPlan
+            ]}
+            onPress={() => setSelectedPlan('monthly')}
+          >
+            <View style={styles.planHeader}>
+              <Text style={[
+                styles.planTitle,
+                selectedPlan === 'monthly' && styles.selectedPlanText
+              ]}>
+                Monthly Plan
+              </Text>
+            </View>
+            <Text style={[
+              styles.planPrice,
+              selectedPlan === 'monthly' && styles.selectedPlanText
+            ]}>
+              $4.99/month
+            </Text>
+            <Text style={[
+              styles.planSubtext,
+              selectedPlan === 'monthly' && styles.selectedPlanSubtext
+            ]}>
+              Billed monthly
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Purchase Button */}
         <TouchableOpacity 
           style={styles.purchaseButton}
-          onPress={() => handlePurchase('premium_yearly')}
-          disabled={loading}
-        >
-          <View style={styles.popularBadge}>
-            <Text style={styles.popularText}>BEST VALUE</Text>
-          </View>
-          <Text style={styles.purchaseButtonText}>
-            Start Premium - $37.99/year
-          </Text>
-          <Text style={styles.purchaseButtonSubtext}>
-            Save $9.89 yearly • Cancel anytime
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.purchaseButton, styles.monthlyButton]}
-          onPress={() => handlePurchase('premium_monthly')}
+          onPress={handlePurchase}
           disabled={loading}
         >
           <Text style={styles.purchaseButtonText}>
-            Start Premium - $3.99/month
+            Start Premium - {getPlanDetails().price}/{getPlanDetails().period}
           </Text>
           <Text style={styles.purchaseButtonSubtext}>
-            Cancel anytime
+            {getPlanDetails().savings ? `Save ${getPlanDetails().savings} per year • ` : ''}Cancel anytime
           </Text>
         </TouchableOpacity>
       </View>
@@ -154,9 +226,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
   },
   header: {
+    padding: 40,
     paddingTop: 60,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
     alignItems: 'center',
   },
   title: {
@@ -172,102 +243,135 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   featuresContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    padding: 20,
   },
   featureItem: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 24,
     backgroundColor: 'white',
+    borderRadius: 15,
     padding: 20,
-    borderRadius: 16,
+    marginBottom: 15,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   featureIcon: {
     fontSize: 32,
-    marginRight: 16,
-    marginTop: 4,
+    marginRight: 15,
   },
   featureContent: {
     flex: 1,
   },
   featureTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#1a1a1a',
-    marginBottom: 4,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
   },
   featureDescription: {
     fontSize: 14,
     color: '#666',
     lineHeight: 20,
-    marginBottom: 6,
+    marginBottom: 5,
   },
   featureHighlight: {
     fontSize: 12,
     color: '#667eea',
-    fontWeight: '500',
+    fontWeight: 'bold',
   },
   pricingContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 30,
+    padding: 20,
   },
-  purchaseButton: {
-    backgroundColor: '#667eea',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    borderRadius: 16,
+  planSelector: {
+    marginBottom: 20,
+  },
+  planOption: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
     marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#E5E5E5',
+  },
+  selectedPlan: {
+    borderColor: '#667eea',
+    backgroundColor: '#F8F9FF',
+  },
+  planHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    position: 'relative',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    marginBottom: 8,
   },
-  monthlyButton: {
-    backgroundColor: '#8b9dc3',
-    shadowColor: '#8b9dc3',
+  planTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  popularBadge: {
-    position: 'absolute',
-    top: -8,
-    backgroundColor: '#ff6b6b',
-    paddingHorizontal: 12,
+  selectedPlanText: {
+    color: '#667eea',
+  },
+  savingsBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  popularText: {
+  savingsText: {
     color: 'white',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
+  },
+  planPrice: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  planSubtext: {
+    fontSize: 14,
+    color: '#666',
+  },
+  selectedPlanSubtext: {
+    color: '#667eea',
+  },
+  purchaseButton: {
+    backgroundColor: '#667eea',
+    borderRadius: 15,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   purchaseButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: 5,
   },
   purchaseButtonSubtext: {
     color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 14,
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
+    padding: 20,
     alignItems: 'center',
   },
   restoreText: {
     color: '#667eea',
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 16,
+    marginBottom: 15,
   },
   cancelText: {
     color: '#999',

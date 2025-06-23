@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { revenueCatService } from './revenueCatService';
 
 export interface SubscriptionStatus {
   isPremium: boolean;
@@ -27,33 +28,6 @@ export interface UsageLimits {
   };
 }
 
-export interface AIStoryLimitCheck {
-  canGenerate: boolean;
-  reason?: string;
-  usageInfo: {
-    lifetimeUsed: number;
-    todayUsed: number;
-    limit: number;
-    resetTime?: Date;
-  };
-}
-
-export interface AudioLimitCheck {
-  canGenerate: boolean;
-  reason?: string;
-  usageInfo: {
-    monthlyUsed: number;
-    monthlyLimit: number;
-    resetDate?: Date;
-  };
-}
-
-export interface ReadingLimitCheck {
-  canReadFull: boolean;
-  maxProgressAllowed: number;
-  reason?: string;
-}
-
 class SubscriptionService {
   async getUserSubscriptionStatus(userId: string): Promise<SubscriptionStatus> {
     const { data } = await supabase
@@ -69,108 +43,171 @@ class SubscriptionService {
     };
   }
 
-  async checkAIStoryGenerationLimit(userId: string): Promise<AIStoryLimitCheck> {
-    try {
-      const { data, error } = await supabase
-        .rpc('check_ai_story_limits', { user_id: userId });
+  async checkAIStoryGenerationLimit(userId: string): Promise<{
+    canGenerate: boolean;
+    reason?: string;
+    usageInfo: {
+      lifetimeUsed: number;
+      todayUsed: number;
+      limit: number;
+      resetTime?: Date;
+    };
+  }> {
+    const { isPremium } = await this.getUserSubscriptionStatus(userId);
+    
+    // Get or create usage record
+    let { data: usage } = await supabase
+      .from('user_usage_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
 
-      if (error) {
-        throw new Error(`Database error: ${error.message}`);
-      }
+    if (!usage) {
+      const { data: newUsage } = await supabase
+        .from('user_usage_limits')
+        .insert({ user_id: userId })
+        .select()
+        .single();
+      usage = newUsage;
+    }
 
-      if (!data || data.length === 0) {
-        throw new Error('No usage data returned');
-      }
-
-      const result = data[0];
-      const nextReset = new Date();
+    // Check if daily reset is needed (for premium users)
+    const today = new Date().toISOString().split('T')[0];
+    const lastReset = usage.ai_stories_last_reset_date ? 
+      new Date(usage.ai_stories_last_reset_date).toISOString().split('T')[0] : null;
+    
+    if (isPremium && lastReset !== today) {
+      // Reset daily counter for premium users
+      await supabase
+        .from('user_usage_limits')
+        .update({
+          ai_stories_generated_today: 0,
+          ai_stories_last_reset_date: today,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
       
-      if (result.is_premium) {
-        // Premium: resets daily at midnight
-        nextReset.setDate(nextReset.getDate() + 1);
-        nextReset.setHours(0, 0, 0, 0);
-      }
+      usage.ai_stories_generated_today = 0;
+    }
+
+    if (isPremium) {
+      // Premium: 2 stories per day
+      const canGenerate = usage.ai_stories_generated_today < 2;
+      const nextReset = new Date();
+      nextReset.setDate(nextReset.getDate() + 1);
+      nextReset.setHours(0, 0, 0, 0);
 
       return {
-        canGenerate: result.can_generate,
-        reason: result.reason || undefined,
+        canGenerate,
+        reason: canGenerate ? undefined : 'Daily limit of 2 AI stories reached. Resets at midnight.',
         usageInfo: {
-          lifetimeUsed: result.lifetime_used,
-          todayUsed: result.today_used,
-          limit: result.is_premium ? 2 : 2, // 2 daily for premium, 2 lifetime for free
-          resetTime: result.is_premium ? nextReset : undefined
+          lifetimeUsed: usage.ai_stories_generated_lifetime,
+          todayUsed: usage.ai_stories_generated_today,
+          limit: 2,
+          resetTime: nextReset
         }
       };
-    } catch (error) {
-      console.error('Error checking AI story limits:', error);
-      // Fallback to safe defaults
+    } else {
+      // Free: 2 lifetime stories
+      const canGenerate = usage.ai_stories_generated_lifetime < 2;
+      
       return {
-        canGenerate: false,
-        reason: 'Unable to check usage limits. Please try again.',
+        canGenerate,
+        reason: canGenerate ? undefined : 'You\'ve used your 2 lifetime AI stories. Upgrade to Premium for 2 stories daily!',
         usageInfo: {
-          lifetimeUsed: 0,
-          todayUsed: 0,
-          limit: 0
+          lifetimeUsed: usage.ai_stories_generated_lifetime,
+          todayUsed: usage.ai_stories_generated_today,
+          limit: 2
         }
       };
     }
   }
 
   async incrementAIStoryUsage(userId: string): Promise<void> {
-    const { error } = await supabase.rpc('increment_ai_story_usage', { user_id: userId });
-    if (error) {
-      throw new Error(`Failed to increment AI story usage: ${error.message}`);
-    }
+    await supabase.rpc('increment_ai_story_usage', { user_id: userId });
   }
 
-  async checkAudioGenerationLimit(userId: string): Promise<AudioLimitCheck> {
-    try {
-      const { data, error } = await supabase
-        .rpc('check_audio_generation_limits', { user_id: userId });
-
-      if (error) {
-        throw new Error(`Database error: ${error.message}`);
-      }
-
-      if (!data || data.length === 0) {
-        throw new Error('No usage data returned');
-      }
-
-      const result = data[0];
-      const nextReset = new Date();
-      nextReset.setMonth(nextReset.getMonth() + 1, 1);
-      nextReset.setHours(0, 0, 0, 0);
-
-      return {
-        canGenerate: result.can_generate,
-        reason: result.reason || undefined,
-        usageInfo: {
-          monthlyUsed: result.monthly_used,
-          monthlyLimit: result.is_premium ? 2 : 0,
-          resetDate: result.is_premium ? nextReset : undefined
-        }
-      };
-    } catch (error) {
-      console.error('Error checking audio generation limits:', error);
+  async checkAudioGenerationLimit(userId: string): Promise<{
+    canGenerate: boolean;
+    reason?: string;
+    usageInfo: {
+      monthlyUsed: number;
+      monthlyLimit: number;
+      resetDate?: Date;
+    };
+  }> {
+    const { isPremium } = await this.getUserSubscriptionStatus(userId);
+    
+    if (!isPremium) {
       return {
         canGenerate: false,
-        reason: 'Unable to check usage limits. Please try again.',
+        reason: 'Audio generation is a Premium feature. Upgrade to generate AI story audio!',
         usageInfo: {
           monthlyUsed: 0,
           monthlyLimit: 0
         }
       };
     }
+
+    // Get usage record
+    let { data: usage } = await supabase
+      .from('user_usage_limits')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (!usage) {
+      const { data: newUsage } = await supabase
+        .from('user_usage_limits')
+        .insert({ user_id: userId })
+        .select()
+        .single();
+      usage = newUsage;
+    }
+
+    // Check if monthly reset is needed
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const lastResetMonth = usage.audio_generations_last_reset_date ? 
+      new Date(usage.audio_generations_last_reset_date).toISOString().slice(0, 7) : null;
+    
+    if (currentMonth !== lastResetMonth) {
+      await supabase
+        .from('user_usage_limits')
+        .update({
+          audio_generations_this_month: 0,
+          audio_generations_last_reset_date: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+      
+      usage.audio_generations_this_month = 0;
+    }
+
+    const canGenerate = usage.audio_generations_this_month < 2;
+    const nextReset = new Date();
+    nextReset.setMonth(nextReset.getMonth() + 1, 1);
+    nextReset.setHours(0, 0, 0, 0);
+
+    return {
+      canGenerate,
+      reason: canGenerate ? undefined : 'Monthly limit of 2 audio generations reached. Resets next month.',
+      usageInfo: {
+        monthlyUsed: usage.audio_generations_this_month,
+        monthlyLimit: 2,
+        resetDate: nextReset
+      }
+    };
   }
 
   async incrementAudioUsage(userId: string): Promise<void> {
-    const { error } = await supabase.rpc('increment_audio_usage', { user_id: userId });
-    if (error) {
-      throw new Error(`Failed to increment audio usage: ${error.message}`);
-    }
+    await supabase.rpc('increment_audio_usage', { user_id: userId });
   }
 
-  async checkStoryReadingLimit(userId: string): Promise<ReadingLimitCheck> {
+  async checkStoryReadingLimit(userId: string): Promise<{
+    canReadFull: boolean;
+    maxProgressAllowed: number;
+    reason?: string;
+  }> {
     const { isPremium } = await this.getUserSubscriptionStatus(userId);
     
     if (isPremium) {
@@ -214,62 +251,6 @@ class SubscriptionService {
         canReadFull: readingCheck.canReadFull,
         maxProgressAllowed: readingCheck.maxProgressAllowed
       }
-    };
-  }
-
-  /**
-   * Initialize usage limits for a new user
-   */
-  async initializeUserUsage(userId: string): Promise<void> {
-    const { error } = await supabase
-      .from('user_usage_limits')
-      .upsert({
-        user_id: userId,
-        ai_stories_generated_lifetime: 0,
-        ai_stories_generated_today: 0,
-        ai_stories_last_reset_date: new Date().toISOString().split('T')[0],
-        audio_generations_this_month: 0,
-        audio_generations_last_reset_date: new Date().toISOString().split('T')[0],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id',
-        ignoreDuplicates: true
-      });
-
-    if (error) {
-      console.error('Error initializing user usage:', error);
-      throw new Error(`Failed to initialize usage tracking: ${error.message}`);
-    }
-  }
-
-  /**
-   * Get subscription analytics for admin/monitoring
-   */
-  async getSubscriptionAnalytics(): Promise<{
-    totalUsers: number;
-    premiumUsers: number;
-    freeUsers: number;
-    conversionRate: number;
-  }> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('subscription_tier');
-
-    if (error) {
-      throw new Error(`Failed to get analytics: ${error.message}`);
-    }
-
-    const totalUsers = data.length;
-    const premiumUsers = data.filter(u => u.subscription_tier === 'premium').length;
-    const freeUsers = totalUsers - premiumUsers;
-    const conversionRate = totalUsers > 0 ? (premiumUsers / totalUsers) * 100 : 0;
-
-    return {
-      totalUsers,
-      premiumUsers,
-      freeUsers,
-      conversionRate
     };
   }
 }

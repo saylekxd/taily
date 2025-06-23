@@ -28,6 +28,8 @@ export interface AudioGenerationJob {
 }
 
 class AudioService {
+  private MONTHLY_LIMIT = 5;
+
   /**
    * Generate audio for a personalized story using ElevenLabs via Edge Function
    */
@@ -43,12 +45,12 @@ class AudioService {
         throw new Error('User not authenticated');
       }
 
-      // Check if user can generate audio using subscription service
-      const limitCheck = await subscriptionService.checkAudioGenerationLimit(session.user.id);
+      // Check if user can generate audio
+      const limitCheck = await this.canGenerateAudio();
       if (!limitCheck.canGenerate) {
         return {
           success: false,
-          error: limitCheck.reason || 'Cannot generate audio at this time'
+          error: limitCheck.reason || 'Cannot generate audio'
         };
       }
 
@@ -64,13 +66,8 @@ class AudioService {
         throw new Error(response.error.message || 'Failed to generate audio');
       }
 
-      // Increment usage counter after successful generation
-      try {
-        await subscriptionService.incrementAudioUsage(session.user.id);
-      } catch (usageError) {
-        console.error('Error incrementing audio usage:', usageError);
-        // Don't throw here as the audio was already generated successfully
-      }
+      // Increment audio usage after successful generation
+      await subscriptionService.incrementAudioUsage(session.user.id);
 
       return response.data as AudioGenerationResult;
     } catch (error) {
@@ -83,29 +80,37 @@ class AudioService {
   }
 
   /**
-   * Get current month's audio generation usage for the user using subscription service
+   * Get current month's audio generation usage for the user
    */
   async getCurrentUsage(): Promise<AudioUsage> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('User not authenticated');
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentYear = currentDate.getFullYear();
+
+      const { data, error } = await supabase
+        .from('audio_generation_usage')
+        .select('usage_count')
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
+        .eq('month', currentMonth)
+        .eq('year', currentYear)
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // Not found error
+        throw error;
       }
 
-      const limitCheck = await subscriptionService.checkAudioGenerationLimit(user.id);
-      const currentDate = new Date();
-      
       return {
-        usage_count: limitCheck.usageInfo.monthlyUsed,
-        limit: limitCheck.usageInfo.monthlyLimit,
-        month: currentDate.getMonth() + 1,
-        year: currentDate.getFullYear(),
+        usage_count: data?.usage_count || 0,
+        limit: this.MONTHLY_LIMIT,
+        month: currentMonth,
+        year: currentYear,
       };
     } catch (error) {
       console.error('Error getting current usage:', error);
       return {
         usage_count: 0,
-        limit: 0,
+        limit: this.MONTHLY_LIMIT,
         month: new Date().getMonth() + 1,
         year: new Date().getFullYear(),
       };
@@ -113,20 +118,13 @@ class AudioService {
   }
 
   /**
-   * Check if user can generate more audio this month using subscription service
+   * Check if user can generate more audio this month
    */
   async canGenerateAudio(): Promise<{ canGenerate: boolean; reason?: string }> {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        return { canGenerate: false, reason: 'Not authenticated' };
-      }
-      
-      return await subscriptionService.checkAudioGenerationLimit(user.id);
-    } catch (error) {
-      console.error('Error checking audio generation limit:', error);
-      return { canGenerate: false, reason: 'Unable to check limits' };
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { canGenerate: false, reason: 'Not authenticated' };
+    
+    return await subscriptionService.checkAudioGenerationLimit(user.id);
   }
 
   /**

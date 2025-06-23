@@ -51,7 +51,7 @@ ALTER TABLE user_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_usage_limits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE revenue_cat_events ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies for user_subscriptions
+-- Create RLS policies
 CREATE POLICY "Users can view their own subscription"
   ON user_subscriptions FOR SELECT
   USING (auth.uid() = user_id);
@@ -64,7 +64,6 @@ CREATE POLICY "Users can update their own subscription"
   ON user_subscriptions FOR UPDATE
   USING (auth.uid() = user_id);
 
--- Create RLS policies for user_usage_limits
 CREATE POLICY "Users can view their own usage limits"
   ON user_usage_limits FOR SELECT
   USING (auth.uid() = user_id);
@@ -88,12 +87,9 @@ ADD COLUMN subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('f
 ADD COLUMN subscription_expires_at TIMESTAMPTZ,
 ADD COLUMN revenue_cat_customer_id TEXT;
 
--- Create indexes for quick subscription lookups
+-- Create index for quick subscription lookups
 CREATE INDEX idx_profiles_subscription_tier ON profiles(subscription_tier);
 CREATE INDEX idx_profiles_revenue_cat_customer ON profiles(revenue_cat_customer_id);
-CREATE INDEX idx_user_subscriptions_customer_id ON user_subscriptions(revenue_cat_customer_id);
-CREATE INDEX idx_user_subscriptions_status ON user_subscriptions(subscription_status);
-CREATE INDEX idx_user_usage_limits_user_id ON user_usage_limits(user_id);
 
 -- Initialize usage limits for existing users
 INSERT INTO user_usage_limits (user_id)

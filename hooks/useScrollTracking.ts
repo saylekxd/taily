@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { ScrollView } from 'react-native';
-import { subscriptionService } from '@/services/subscriptionService';
-import { supabase } from '@/lib/supabase';
 
 interface UseScrollTrackingResult {
   contentHeight: number;
@@ -10,9 +8,6 @@ interface UseScrollTrackingResult {
   handleScroll: (event: any) => void;
   handleContentSizeChange: (contentWidth: number, contentHeight: number) => void;
   handleScrollViewLayout: (event: any) => void;
-  showPaywall: boolean;
-  setShowPaywall: (show: boolean) => void;
-  paywallMessage: string;
 }
 
 export function useScrollTracking(
@@ -20,13 +15,10 @@ export function useScrollTracking(
   setProgress: (progress: number) => void,
   shouldScrollToProgress: boolean,
   setShouldScrollToProgress: (should: boolean) => void,
-  isMountedRef: React.MutableRefObject<boolean>,
-  isPersonalized: boolean = false // Personalized stories don't have reading limits
+  isMountedRef: React.MutableRefObject<boolean>
 ): UseScrollTrackingResult {
   const [contentHeight, setContentHeight] = useState(0);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
-  const [showPaywall, setShowPaywall] = useState(false);
-  const [paywallMessage, setPaywallMessage] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Auto-scroll to saved progress when content is ready
@@ -58,7 +50,7 @@ export function useScrollTracking(
     }
   }, [shouldScrollToProgress, contentHeight, scrollViewHeight, progress, setShouldScrollToProgress, isMountedRef]);
 
-  const handleScroll = async (event: any) => {
+  const handleScroll = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.y;
     const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
     const contentHeight = event.nativeEvent.contentSize.height;
@@ -72,40 +64,6 @@ export function useScrollTracking(
       scrollPosition / (contentHeight - scrollViewHeight),
       1
     );
-
-    // Check reading limits for regular stories (not personalized)
-    if (!isPersonalized && isMountedRef.current) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const readingCheck = await subscriptionService.checkStoryReadingLimit(user.id);
-          
-          // If user can't read full stories and they're trying to go beyond the limit
-          if (!readingCheck.canReadFull && currentProgress > readingCheck.maxProgressAllowed) {
-            // Prevent further scrolling by showing paywall
-            setPaywallMessage(readingCheck.reason || 'Upgrade to Premium to read complete stories!');
-            setShowPaywall(true);
-            
-            // Scroll back to the maximum allowed position
-            const maxScrollPosition = readingCheck.maxProgressAllowed * (contentHeight - scrollViewHeight);
-            setTimeout(() => {
-              if (isMountedRef.current) {
-                scrollViewRef.current?.scrollTo({
-                  y: Math.max(0, maxScrollPosition),
-                  animated: true,
-                });
-              }
-            }, 100);
-            
-            // Set progress to the maximum allowed
-            setProgress(readingCheck.maxProgressAllowed);
-            return;
-          }
-        }
-      } catch (error) {
-        console.error('Error checking reading limits:', error);
-      }
-    }
     
     if (isMountedRef.current) {
       setProgress(currentProgress);
@@ -130,8 +88,5 @@ export function useScrollTracking(
     handleScroll,
     handleContentSizeChange,
     handleScrollViewLayout,
-    showPaywall,
-    setShowPaywall,
-    paywallMessage,
   };
 } 

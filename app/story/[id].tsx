@@ -11,13 +11,14 @@ import StoryContent from '@/components/StoryContent';
 import StoryControls from '@/components/StoryControls';
 import CompletionBanner from '@/components/CompletionBanner';
 import DetailedReaderView from '@/components/DetailedReaderView/index';
-import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
 import { useStoryData } from '@/hooks/useStoryData';
 import { useReadingSession } from '@/hooks/useReadingSession';
 import { useScrollTracking } from '@/hooks/useScrollTracking';
+import { subscriptionService } from '@/services/subscriptionService';
+import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
 
 import { createOrUpdateUserStory } from '@/services/storyService';
 import { Story } from '@/types';
@@ -31,6 +32,10 @@ export default function StoryScreen() {
   
   // Detailed reader state
   const [showDetailedReader, setShowDetailedReader] = useState(false);
+  
+  // Paywall state
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallMessage, setPaywallMessage] = useState<string>();
   
   // Use the extracted story data hook
   const {
@@ -67,7 +72,29 @@ export default function StoryScreen() {
     personalized === 'true'
   );
   
-  // Use the extracted scroll tracking hook with paywall integration
+  // Subscription-aware progress handler
+  const handleProgressUpdate = async (newProgress: number) => {
+    // For personalized stories, no limits
+    if (personalized === 'true') {
+      setProgress(newProgress);
+      return;
+    }
+
+    // For regular stories, check subscription limits
+    if (user?.id) {
+      const readingCheck = await subscriptionService.checkStoryReadingLimit(user.id);
+      
+      if (!readingCheck.canReadFull && newProgress > readingCheck.maxProgressAllowed) {
+        setPaywallMessage(readingCheck.reason);
+        setShowPaywall(true);
+        return; // Don't update progress beyond limit
+      }
+    }
+    
+    setProgress(newProgress);
+  };
+
+  // Use the extracted scroll tracking hook
   const {
     contentHeight,
     scrollViewHeight,
@@ -75,16 +102,12 @@ export default function StoryScreen() {
     handleScroll,
     handleContentSizeChange,
     handleScrollViewLayout,
-    showPaywall,
-    setShowPaywall,
-    paywallMessage,
   } = useScrollTracking(
     progress,
-    setProgress,
+    handleProgressUpdate, // Use subscription-aware handler
     shouldScrollToProgress,
     setShouldScrollToProgress,
-    isMountedRef,
-    personalized === 'true' // Pass isPersonalized flag
+    isMountedRef
   );
   
   // Note: Speech synthesis is now handled within StoryControls component
@@ -160,8 +183,8 @@ export default function StoryScreen() {
     setShouldScrollToProgress(true);
   };
 
-  const handleDetailedReaderProgressChange = (newProgress: number) => {
-    setProgress(newProgress);
+  const handleDetailedReaderProgressChange = async (newProgress: number) => {
+    await handleProgressUpdate(newProgress);
   };
 
   if (loading || !story) {
@@ -226,9 +249,9 @@ export default function StoryScreen() {
         storyId={isPersonalizedStory ? undefined : story.id}
         personalizedStoryId={isPersonalizedStory ? story.id : undefined}
       />
-
-      {/* Paywall Trigger for Reading Limits */}
-      <PaywallTrigger
+      
+      {/* Paywall Trigger */}
+      <PaywallTrigger 
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         feature="full_reading"

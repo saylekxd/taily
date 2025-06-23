@@ -14,6 +14,7 @@ import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
 import { createPersonalizedStory, getUserStoryLimitInfo } from '@/services/personalizedStoryService';
+import { subscriptionService } from '@/services/subscriptionService';
 import { getTranslatedInterests } from '@/constants/interests';
 import { PersonalizedStory } from '@/services/personalizedStoryService';
 import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
@@ -33,15 +34,9 @@ export default function PersonalizedStoryGenerator({
   const { t } = useI18n();
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [limitInfo, setLimitInfo] = useState({ 
-    currentCount: 0, 
-    maxCount: 2, 
-    canGenerate: true,
-    todayUsed: 0,
-    resetTime: undefined as Date | undefined
-  });
+  const [limitInfo, setLimitInfo] = useState({ currentCount: 0, maxCount: 2, canGenerate: true });
   const [showPaywall, setShowPaywall] = useState(false);
-  const [paywallMessage, setPaywallMessage] = useState('');
+  const [paywallMessage, setPaywallMessage] = useState<string>();
   
   const translatedInterests = getTranslatedInterests(t);
 
@@ -57,13 +52,7 @@ export default function PersonalizedStoryGenerator({
     
     try {
       const info = await getUserStoryLimitInfo(user.id);
-      setLimitInfo({
-        currentCount: info.currentCount,
-        maxCount: info.maxCount,
-        canGenerate: info.canGenerate,
-        todayUsed: info.todayUsed || 0,
-        resetTime: info.resetTime
-      });
+      setLimitInfo(info);
     } catch (error) {
       console.error('Error loading limit info:', error);
     }
@@ -75,13 +64,10 @@ export default function PersonalizedStoryGenerator({
       return;
     }
 
-    if (!limitInfo.canGenerate) {
-      // Show paywall instead of alert
-      setPaywallMessage(
-        limitInfo.resetTime 
-          ? `You've used your AI story limit. ${limitInfo.resetTime ? 'Resets tomorrow for Premium users!' : 'Upgrade to Premium for daily stories!'}`
-          : 'You\'ve used your 2 lifetime AI stories. Upgrade to Premium for 2 new stories every day!'
-      );
+    // Check subscription limits before generating
+    const limitCheck = await subscriptionService.checkAIStoryGenerationLimit(user.id);
+    if (!limitCheck.canGenerate) {
+      setPaywallMessage(limitCheck.reason);
       setShowPaywall(true);
       return;
     }
@@ -93,11 +79,9 @@ export default function PersonalizedStoryGenerator({
       onStoryGenerated(story);
       onClose();
       setSelectedTheme(null);
-      // Refresh limit info after generation
-      await loadLimitInfo();
     } catch (error: any) {
-      // Check if error is related to limits and show paywall
-      if (error.message?.includes('limit') || error.message?.includes('Upgrade')) {
+      // Check if error is due to limits and show paywall accordingly
+      if (error.message?.includes('limit') || error.message?.includes('Premium')) {
         setPaywallMessage(error.message);
         setShowPaywall(true);
       } else {
@@ -108,170 +92,135 @@ export default function PersonalizedStoryGenerator({
     }
   };
 
-  const renderLimitInfo = () => {
-    if (limitInfo.resetTime) {
-      // Premium user - daily limit
-      return (
-        <Text style={styles.limitText}>
-          {t('generator.dailyStoriesRemaining', { 
-            remaining: 2 - (limitInfo.todayUsed || 0),
-            total: 2 
-          })}
-          {limitInfo.resetTime && (
-            <Text style={styles.resetText}>
-              {'\n'}Resets tomorrow
-            </Text>
-          )}
-        </Text>
-      );
-    } else {
-      // Free user - lifetime limit
-      return (
-        <Text style={styles.limitText}>
-          {t('generator.storiesRemaining', { 
-            remaining: limitInfo.maxCount - limitInfo.currentCount,
-            total: limitInfo.maxCount 
-          })}
-          <Text style={styles.upgradeHint}>
-            {'\n'}Upgrade to Premium for 2 daily stories!
-          </Text>
-        </Text>
-      );
-    }
-  };
-
   if (!profile) {
     return null;
   }
 
   return (
-    <>
-      <Modal
-        visible={visible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={onClose}
-      >
-        <View style={styles.container}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Sparkles size={24} color={colors.primary} />
-              <Text style={styles.headerTitle}>{t('generator.createPersonalizedStory')}</Text>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Sparkles size={24} color={colors.primary} />
+            <Text style={styles.headerTitle}>{t('generator.createPersonalizedStory')}</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <X size={24} color={colors.white} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Story Info */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('generator.storyWillFeature')}</Text>
+            <View style={styles.childInfo}>
+              <Text style={styles.childName}>{profile.child_name}</Text>
+              <Text style={styles.childDetails}>
+                {t('profile.yearsOld', { age: profile.age })} • {t(`onboarding.${profile.reading_level}`)}
+              </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color={colors.white} />
-            </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Story Info */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('generator.storyWillFeature')}</Text>
-              <View style={styles.childInfo}>
-                <Text style={styles.childName}>{profile.child_name}</Text>
-                <Text style={styles.childDetails}>
-                  {t('profile.yearsOld', { age: profile.age })} • {t(`onboarding.${profile.reading_level}`)}
-                </Text>
-              </View>
+          {/* Theme Selection */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('generator.chooseTheme')}</Text>
+            <Text style={styles.sectionSubtitle}>{t('generator.basedOnInterests')}</Text>
+            
+            <View style={styles.themesContainer}>
+              {profile.interests.map((interestId) => {
+                const interest = translatedInterests.find(i => i.id === interestId);
+                if (!interest) return null;
+                
+                return (
+                  <TouchableOpacity
+                    key={interest.id}
+                    style={[
+                      styles.themeOption,
+                      selectedTheme === interest.id && styles.selectedTheme
+                    ]}
+                    onPress={() => setSelectedTheme(
+                      selectedTheme === interest.id ? null : interest.id
+                    )}
+                  >
+                    <Text style={[
+                      styles.themeText,
+                      selectedTheme === interest.id && styles.selectedThemeText
+                    ]}>
+                      {interest.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+          </View>
 
-            {/* Theme Selection */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('generator.chooseTheme')}</Text>
-              <Text style={styles.sectionSubtitle}>{t('generator.basedOnInterests')}</Text>
-              
-              <View style={styles.themesContainer}>
-                {profile.interests.map((interestId) => {
-                  const interest = translatedInterests.find(i => i.id === interestId);
-                  if (!interest) return null;
-                  
-                  return (
-                    <TouchableOpacity
-                      key={interest.id}
-                      style={[
-                        styles.themeOption,
-                        selectedTheme === interest.id && styles.selectedTheme
-                      ]}
-                      onPress={() => setSelectedTheme(
-                        selectedTheme === interest.id ? null : interest.id
-                      )}
-                    >
-                      <Text style={[
-                        styles.themeText,
-                        selectedTheme === interest.id && styles.selectedThemeText
-                      ]}>
-                        {interest.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
+          {/* Story Limit Info */}
+          <View style={styles.section}>
+            <View style={styles.limitInfo}>
+              <Text style={styles.limitText}>
+                {t('generator.storiesRemaining', { 
+                  remaining: limitInfo.maxCount - limitInfo.currentCount,
+                  total: limitInfo.maxCount 
                 })}
-              </View>
+              </Text>
             </View>
+          </View>
 
-            {/* Story Limit Info */}
-            <View style={styles.section}>
-              <View style={[
-                styles.limitInfo,
-                !limitInfo.canGenerate && styles.limitInfoWarning
-              ]}>
-                {renderLimitInfo()}
-              </View>
-            </View>
-
-            {/* Preview */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{t('generator.storyPreview')}</Text>
-              <View style={styles.previewCard}>
-                <Text style={styles.previewText}>
-                  {selectedTheme 
-                    ? t('generator.storyWillBeAbout', { 
-                        name: profile.child_name, 
-                        theme: translatedInterests.find(i => i.id === selectedTheme)?.name 
-                      })
-                    : t('generator.selectThemeToSeePreview')
-                  }
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
-
-          {/* Generate Button */}
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={[
-                styles.generateButton,
-                isGenerating && styles.generateButtonDisabled
-              ]}
-              onPress={handleGenerateStory}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Wand2 size={20} color={colors.white} />
-              )}
-              <Text style={styles.generateButtonText}>
-                {isGenerating 
-                  ? t('generator.generatingStory') 
-                  : limitInfo.canGenerate 
-                    ? t('generator.generateStory')
-                    : 'Upgrade to Generate'
+          {/* Preview */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('generator.storyPreview')}</Text>
+            <View style={styles.previewCard}>
+              <Text style={styles.previewText}>
+                {selectedTheme 
+                  ? t('generator.storyWillBeAbout', { 
+                      name: profile.child_name, 
+                      theme: translatedInterests.find(i => i.id === selectedTheme)?.name 
+                    })
+                  : t('generator.selectThemeToSeePreview')
                 }
               </Text>
-            </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
+        </ScrollView>
 
-      {/* Paywall Trigger */}
-      <PaywallTrigger
+        {/* Generate Button */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[
+              styles.generateButton,
+              (!limitInfo.canGenerate || isGenerating) && styles.generateButtonDisabled
+            ]}
+            onPress={handleGenerateStory}
+            disabled={!limitInfo.canGenerate || isGenerating}
+          >
+            {isGenerating ? (
+              <ActivityIndicator color={colors.white} size="small" />
+            ) : (
+              <Wand2 size={20} color={colors.white} />
+            )}
+            <Text style={styles.generateButtonText}>
+              {isGenerating 
+                ? t('generator.generatingStory') 
+                : t('generator.generateStory')
+              }
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      <PaywallTrigger 
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         feature="ai_story"
         customMessage={paywallMessage}
       />
-    </>
+    </Modal>
   );
 }
 
@@ -370,26 +319,11 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  limitInfoWarning: {
-    backgroundColor: '#fee2e2',
-    borderColor: '#ef4444',
-    borderWidth: 1,
-  },
   limitText: {
     fontFamily: 'Nunito-Regular',
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  resetText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  upgradeHint: {
-    fontSize: 12,
-    color: colors.primary,
-    fontWeight: 'bold',
   },
   previewCard: {
     backgroundColor: colors.card,

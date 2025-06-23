@@ -17,8 +17,8 @@ import { AppProvider } from '@/context/AppContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { revenueCatService } from '@/services/revenueCatService';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
@@ -56,24 +56,18 @@ export default Sentry.wrap(function RootLayout() {
     if (fontError) throw fontError;
   }, [fontError]);
 
-  // Initialize RevenueCat on app startup
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        await revenueCatService.initialize();
-        console.log('RevenueCat initialized successfully');
-      } catch (error) {
-        console.error('Failed to initialize RevenueCat:', error);
-      }
-    };
-
-    initializeApp();
-  }, []);
-
   useEffect(() => {
     if (fontsLoaded) {
       const checkAuthState = async () => {
         try {
+          // Initialize RevenueCat on app startup
+          try {
+            await revenueCatService.initialize();
+            console.log('RevenueCat initialized successfully');
+          } catch (error) {
+            console.error('Failed to initialize RevenueCat:', error);
+          }
+
           const { data: { session } } = await supabase.auth.getSession();
           
           if (session) {

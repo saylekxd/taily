@@ -1,4 +1,4 @@
-import Purchases, { CustomerInfo, PurchaserInfo } from 'react-native-purchases';
+import Purchases, { CustomerInfo, PRODUCT_CATEGORY } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
 

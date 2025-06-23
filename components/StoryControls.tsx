@@ -15,6 +15,7 @@ import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { audioService, AudioUsage } from '@/services/audioService';
 import { useUser } from '@/hooks/useUser';
 import ShareButton from '@/components/ShareButton';
+import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
 
 interface StoryControlsProps {
   storyId?: string;
@@ -45,6 +46,8 @@ export default function StoryControls({
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [hasAudio, setHasAudio] = useState(false);
   const [userLanguage, setUserLanguage] = useState<'en' | 'pl'>('en');
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallMessage, setPaywallMessage] = useState<string>();
 
   const { profile } = useUser();
 
@@ -91,13 +94,10 @@ export default function StoryControls({
     if (!isPersonalized || !personalizedStoryId || !storyContent) return;
 
     // Check if user can generate audio
-    const canGenerate = await audioService.canGenerateAudio();
-    if (!canGenerate) {
-      Alert.alert(
-        'Monthly Limit Reached',
-        `You've reached your monthly limit of ${usage?.limit || 5} audio generations. Your limit will reset next month.`,
-        [{ text: 'OK' }]
-      );
+    const limitCheck = await audioService.canGenerateAudio();
+    if (!limitCheck.canGenerate) {
+      setPaywallMessage(limitCheck.reason);
+      setShowPaywall(true);
       return;
     }
 
@@ -122,11 +122,17 @@ export default function StoryControls({
         await loadUsage();
         await checkAudioAvailability();
       } else {
-        Alert.alert(
-          'Generation Failed',
-          result.error || 'Failed to generate audio. Please try again.',
-          [{ text: 'OK' }]
-        );
+        // Check if error is subscription-related
+        if (result.error?.includes('Premium') || result.error?.includes('limit')) {
+          setPaywallMessage(result.error);
+          setShowPaywall(true);
+        } else {
+          Alert.alert(
+            'Generation Failed',
+            result.error || 'Failed to generate audio. Please try again.',
+            [{ text: 'OK' }]
+          );
+        }
       }
     } catch (error) {
       console.error('Error generating audio:', error);
@@ -276,6 +282,13 @@ export default function StoryControls({
           <Text style={styles.errorText}>{audioPlayer.error}</Text>
         </View>
       )}
+      
+      <PaywallTrigger 
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        feature="audio_generation"
+        customMessage={paywallMessage}
+      />
     </View>
   );
 }

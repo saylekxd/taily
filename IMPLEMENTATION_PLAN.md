@@ -553,7 +553,7 @@ Implement RevenueCat as the paywall system to create a freemium model with clear
 - **Story Reading**: Access to all story content but limited to 20% progress (uses existing `progress` column in `user_stories` table)
 - **Audio Generation**: No access (premium feature only)
 
-#### Premium Tier ($3.99/month or $37.99/year)
+#### Premium Tier ($4.99/month)
 - **Daily Stories**: Full access maintained
 - **AI Story Generation**: 2 stories per day (reset every 24 hours)
 - **Story Reading**: Full access to complete story content (100% progress)
@@ -1404,24 +1404,11 @@ export default function PaywallScreen() {
       <View style={styles.pricingContainer}>
         <TouchableOpacity 
           style={styles.purchaseButton}
-          onPress={() => handlePurchase('premium_yearly')}
-          disabled={loading}
-        >
-          <Text style={styles.purchaseButtonText}>
-            Start Premium - $37.99/year
-          </Text>
-          <Text style={styles.purchaseButtonSubtext}>
-            Save $9.89 yearly • Cancel anytime
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.purchaseButton, styles.monthlyButton]}
           onPress={() => handlePurchase('premium_monthly')}
           disabled={loading}
         >
           <Text style={styles.purchaseButtonText}>
-            Start Premium - $3.99/month
+            Start Premium - $4.99/month
           </Text>
           <Text style={styles.purchaseButtonSubtext}>
             Cancel anytime
@@ -1892,8 +1879,8 @@ const handleGenerateAudio = async () => {
 #### Step 4.14: RevenueCat Dashboard Setup
 - [ ] Create RevenueCat account and project
 - [ ] Set up products:
-  - `premium_monthly` - $3.99/month
-  - `premium_yearly` - $37.99/year
+  - `premium_monthly` - $4.99/month
+  - `premium_annual` - $39.99/year (33% savings)
 - [ ] Create entitlements:
   - `premium` - Access to all premium features
 - [ ] Configure webhook URL for Supabase integration:
@@ -1907,10 +1894,10 @@ supabase functions deploy revenue-cat-webhook --project-ref your-project-ref
 
 #### Step 4.15: App Store Connect (iOS)
 - [ ] Create in-app purchase products:
-  - Auto-renewable subscription: `premium_monthly` ($3.99/month)
-  - Auto-renewable subscription: `premium_yearly` ($37.99/year)
-  - Set pricing: $3.99/month, $37.99/year
-  - Configure subscription groups
+  - Auto-renewable subscription: `premium_monthly` - $4.99/month
+  - Auto-renewable subscription: `premium_annual` - $39.99/year
+  - Configure subscription groups (both products in same group)
+  - Submit for review
 
 #### Step 4.16: Google Play Console (Android)
 - [ ] Create subscription products
