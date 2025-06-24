@@ -3,7 +3,45 @@
     "name": "Taily",
     "slug": "Taily-app",
     "version": "1.0.0",
+    "scheme": "taily",
     "newArchEnabled": false,
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.saylekxd.Tailyapp",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["taily"],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "taily",
+            "CFBundleURLSchemes": ["taily"]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "com.saylekxd.Tailyapp",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#1a1a2e"
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "taily.app"
+            },
+            {
+              "scheme": "taily"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
     "web": {
       "bundler": "metro",
       "output": "single",
@@ -14,7 +52,7 @@
     },
     "extra": {
       "router": {
-        "origin": false
+        "origin": "taily://"
       },
       "eas": {
         "projectId": "d43f7904-5576-4aa4-afb4-25d881100a94"

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text } from 'react-native';
+import { View, Text, Linking } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useFonts } from 'expo-font';
 import { 
@@ -84,6 +84,32 @@ export default Sentry.wrap(function RootLayout() {
   const router = useRouter();
   const [appError, setAppError] = useState<string | null>(null);
 
+  // Global error handler for deep linking issues
+  useEffect(() => {
+    const errorHandler = (error: any) => {
+      if (error.message && error.message.includes('deep link')) {
+        console.warn('Deep linking error caught and handled:', error);
+        return true; // Prevent crash
+      }
+      return false;
+    };
+
+    // Set up global error catching
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      const errorMessage = args.join(' ');
+      if (errorMessage.includes('Cannot make a deep link into a standalone app')) {
+        console.warn('Deep linking error intercepted:', errorMessage);
+        return;
+      }
+      originalConsoleError(...args);
+    };
+
+    return () => {
+      console.error = originalConsoleError;
+    };
+  }, []);
+
   const [fontsLoaded, fontError] = useFonts({
     'Nunito-Regular': Nunito_400Regular,
     'Nunito-Bold': Nunito_700Bold,
@@ -106,6 +132,18 @@ export default Sentry.wrap(function RootLayout() {
       const checkAuthState = async () => {
         try {
           console.log('Starting auth state check...');
+          
+          // Handle any pending deep links gracefully
+          try {
+            const initialURL = await Linking.getInitialURL();
+            if (initialURL) {
+              console.log('Initial URL detected:', initialURL);
+              // Handle deep link if needed, but don't let it crash the app
+            }
+          } catch (linkingError) {
+            console.warn('Deep linking error handled gracefully:', linkingError);
+            // Continue app startup even if deep linking fails
+          }
           
           // Initialize RevenueCat on app startup with crash protection
           try {
@@ -173,6 +211,22 @@ export default Sentry.wrap(function RootLayout() {
 
       checkAuthState();
 
+      // Set up deep link handling with error protection
+      let linkingSubscription: any = null;
+      try {
+        linkingSubscription = Linking.addEventListener('url', (event) => {
+          try {
+            console.log('Deep link received:', event.url);
+            // Handle deep link navigation here if needed
+            // For now, just log to prevent crashes
+          } catch (linkError) {
+            console.warn('Error handling deep link:', linkError);
+          }
+        });
+      } catch (linkingSetupError) {
+        console.warn('Could not set up deep link listener:', linkingSetupError);
+      }
+
       // Listen for auth state changes
       const { data: { subscription } } = supabase.auth.onAuthStateChange(
         async (event, session) => {
@@ -202,6 +256,13 @@ export default Sentry.wrap(function RootLayout() {
 
       return () => {
         subscription.unsubscribe();
+        if (linkingSubscription) {
+          try {
+            linkingSubscription.remove();
+          } catch (cleanupError) {
+            console.warn('Error cleaning up deep link listener:', cleanupError);
+          }
+        }
       };
     }
   }, [fontsLoaded, router]);
