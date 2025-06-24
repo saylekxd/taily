@@ -1,6 +1,7 @@
 import Purchases, { CustomerInfo, PRODUCT_CATEGORY } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import Constants from 'expo-constants';
 
 class RevenueCatService {
   private initialized = false;
@@ -14,9 +15,9 @@ class RevenueCatService {
       let apiKey: string | undefined;
       
       if (Platform.OS === 'ios') {
-        apiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY;
+        apiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY;
       } else {
-        apiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY;
+        apiKey = Constants.expoConfig?.extra?.EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY;
       }
       
       if (!apiKey) {
