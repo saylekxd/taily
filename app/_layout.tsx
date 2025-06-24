@@ -19,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/constants/colors';
 import { revenueCatService } from '@/services/revenueCatService';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { appReadinessManager } from '@/utils/appReadiness';
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
@@ -90,6 +91,11 @@ export default Sentry.wrap(function RootLayout() {
           console.error('Error checking auth state:', error);
           router.replace('/auth/sign-in');
         } finally {
+          // Set app as ready for speech functionality after initialization is complete
+          setTimeout(() => {
+            appReadinessManager.setReady();
+          }, 1000); // Small delay to ensure everything is settled
+          
           SplashScreen.hideAsync();
         }
       };

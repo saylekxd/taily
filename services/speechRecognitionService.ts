@@ -1,6 +1,22 @@
 import { Platform } from 'react-native';
-import Voice from '@react-native-voice/voice';
 import { Audio } from 'expo-av';
+import { appReadinessManager } from '@/utils/appReadiness';
+
+// Lazy import of Voice to prevent early iOS initialization
+let Voice: any = null;
+
+async function getVoiceModule() {
+  if (!Voice && Platform.OS !== 'web') {
+    try {
+      const voiceModule = await import('@react-native-voice/voice');
+      Voice = voiceModule.default;
+    } catch (error) {
+      console.error('Failed to load Voice module:', error);
+      throw new Error('Voice module not available');
+    }
+  }
+  return Voice;
+}
 
 export interface SpeechRecognitionResult {
   word: string;
@@ -31,11 +47,11 @@ class SpeechRecognitionService {
 
   private async ensureInitialized() {
     if (!this.isInitialized && !this.isDestroying) {
-      this.initializeVoice();
+      await this.initializeVoice();
     }
   }
 
-  private initializeVoice() {
+  private async initializeVoice() {
     if (Platform.OS === 'web') {
       // Web implementation using Web Speech API
       this.isInitialized = true;
@@ -45,12 +61,15 @@ class SpeechRecognitionService {
     try {
       // Only initialize if not already initialized
       if (!this.isInitialized && !this.isDestroying) {
-        Voice.onSpeechStart = this.onSpeechStart;
-        Voice.onSpeechEnd = this.onSpeechEnd;
-        Voice.onSpeechError = this.onSpeechError;
-        Voice.onSpeechResults = this.onSpeechResults;
-        Voice.onSpeechPartialResults = this.onSpeechPartialResults;
-        this.isInitialized = true;
+        const VoiceModule = await getVoiceModule();
+        if (VoiceModule) {
+          VoiceModule.onSpeechStart = this.onSpeechStart;
+          VoiceModule.onSpeechEnd = this.onSpeechEnd;
+          VoiceModule.onSpeechError = this.onSpeechError;
+          VoiceModule.onSpeechResults = this.onSpeechResults;
+          VoiceModule.onSpeechPartialResults = this.onSpeechPartialResults;
+          this.isInitialized = true;
+        }
       }
     } catch (error) {
       console.error('Failed to initialize Voice library:', error);
@@ -111,6 +130,13 @@ class SpeechRecognitionService {
 
   async requestPermissions(): Promise<boolean> {
     try {
+      // Wait for app to be ready before initializing speech
+      const isReady = await appReadinessManager.waitForReady(3000);
+      if (!isReady) {
+        console.warn('App not ready, speech functionality disabled');
+        return false;
+      }
+
       // Ensure initialized before checking permissions
       await this.ensureInitialized();
 
@@ -130,17 +156,19 @@ class SpeechRecognitionService {
 
       // Check if Voice is available with timeout
       try {
+        const VoiceModule = await getVoiceModule();
+        
         const checkAvailability = new Promise<boolean>((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Voice availability check timeout'));
           }, 3000);
 
-          Voice.isAvailable()
-            .then((available) => {
+          VoiceModule.isAvailable()
+            .then((available: any) => {
               clearTimeout(timeout);
               resolve(Boolean(available));
             })
-            .catch((error) => {
+            .catch((error: any) => {
               clearTimeout(timeout);
               reject(error);
             });
@@ -165,6 +193,12 @@ class SpeechRecognitionService {
 
   async startListening(config: Partial<SpeechRecognitionConfig> = {}): Promise<boolean> {
     try {
+      // Check app readiness first
+      if (!appReadinessManager.isAppReady()) {
+        console.log('App not ready, deferring speech recognition');
+        return false;
+      }
+
       // Ensure initialized before starting
       await this.ensureInitialized();
 
@@ -195,9 +229,11 @@ class SpeechRecognitionService {
         ...config,
       };
 
+      const VoiceModule = await getVoiceModule();
+
       // Ensure previous session is stopped
       try {
-        await Voice.stop();
+        await VoiceModule.stop();
       } catch (stopError) {
         // Ignore stop errors, just continue
         console.log('Cleared previous session');
@@ -206,7 +242,7 @@ class SpeechRecognitionService {
       // Small delay to ensure clean state
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      await Voice.start(defaultConfig.language);
+      await VoiceModule.start(defaultConfig.language);
 
       this.isListening = true;
       return true;
@@ -284,7 +320,8 @@ class SpeechRecognitionService {
       }
 
       try {
-        await Voice.stop();
+        const VoiceModule = await getVoiceModule();
+        await VoiceModule.stop();
       } catch (error) {
         console.error('Failed to stop listening:', error);
         // Continue even if stop fails
@@ -323,7 +360,7 @@ class SpeechRecognitionService {
         await this.stopListening();
       }
 
-      if (Platform.OS !== 'web' && this.isInitialized) {
+      if (Platform.OS !== 'web' && this.isInitialized && Voice) {
         try {
           await Voice.destroy();
         } catch (error) {
