@@ -25,14 +25,29 @@ import * as Sentry from '@sentry/react-native';
 Sentry.init({
   dsn: 'https://4d9815c1684b31ba7afbaf3f7c81ddad@o4508910073348096.ingest.de.sentry.io/4509524948156496',
 
+  // Enhanced debugging configuration
+  debug: __DEV__,
+  environment: __DEV__ ? 'development' : 'production',
+  
   // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
 
   // Session Replay disabled to prevent crashes in production
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 0,
   integrations: [Sentry.feedbackIntegration()],
+  
+  // Enhanced error capture for better stack traces
+  beforeSend(event) {
+    // Add more context to help with debugging
+    if (event.exception) {
+      console.log('Sentry capturing exception:', event.exception);
+    }
+    return event;
+  },
+  
+  // Better error boundaries
+  enableNativeCrashHandling: true,
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,

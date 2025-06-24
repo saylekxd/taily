@@ -12,12 +12,22 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_USE_HERMES": "true",
+        "SENTRY_ORG": "swtlabs-vn",
+        "SENTRY_PROJECT": "taily"
+      }
     },
     "internal": {
       "distribution": "internal",
       "ios": {
         "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_USE_HERMES": "true",
+        "SENTRY_ORG": "swtlabs-vn",
+        "SENTRY_PROJECT": "taily"
       }
     }
   },

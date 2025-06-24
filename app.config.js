@@ -1,6 +1,11 @@
 export default ({ config }) => {
   return {
     ...config,
+    jsEngine: 'hermes',
+    plugins: [
+      ...(config.plugins || []),
+      '@sentry/react-native/expo',
+    ],
     extra: {
       ...config.extra,
       EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY: process.env.EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY,
@@ -8,6 +13,17 @@ export default ({ config }) => {
       EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
       EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       EXPO_PUBLIC_GEMINI_API_KEY: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+    },
+    hooks: {
+      postPublish: [
+        {
+          file: '@sentry/react-native/expo',
+          config: {
+            organization: 'swtlabs-vn',
+            project: 'taily',
+          },
+        },
+      ],
     },
   };
 }; 

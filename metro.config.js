@@ -16,6 +16,10 @@ config.transformer.minifierConfig = {
   },
 };
 
+// Ensure source maps are generated for Hermes
+config.transformer.hermesCommand = 'hermes';
+config.transformer.enableBabelRCLookup = false;
+
 // Ensure consistent module resolution
 config.resolver.platforms = ['ios', 'android', 'native', 'web'];
 
