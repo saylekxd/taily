@@ -13,6 +13,12 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "internal": {
+      "distribution": "internal",
+      "ios": {
+        "buildConfiguration": "Release"
+      }
     }
   },
   "submit": {

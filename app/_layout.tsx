@@ -29,10 +29,10 @@ Sentry.init({
   // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
   sendDefaultPii: true,
 
-  // Configure Session Replay
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+  // Session Replay disabled to prevent crashes in production
+  replaysSessionSampleRate: 0,
+  replaysOnErrorSampleRate: 0,
+  integrations: [Sentry.feedbackIntegration()],
 
   // uncomment the line below to enable Spotlight (https://spotlightjs.com)
   // spotlight: __DEV__,
@@ -61,12 +61,12 @@ export default Sentry.wrap(function RootLayout() {
     if (fontsLoaded) {
       const checkAuthState = async () => {
         try {
-          // Initialize RevenueCat on app startup
+          // Initialize RevenueCat on app startup with crash protection
           try {
             await revenueCatService.initialize();
-            console.log('RevenueCat initialized successfully');
           } catch (error) {
-            console.error('Failed to initialize RevenueCat:', error);
+            console.error('Failed to initialize RevenueCat during startup:', error);
+            // Continue app startup even if RevenueCat fails
           }
 
           const { data: { session } } = await supabase.auth.getSession();

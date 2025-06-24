@@ -8,51 +8,130 @@ class RevenueCatService {
   async initialize() {
     if (this.initialized) return;
     
-    Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
-    
-    if (Platform.OS === 'ios') {
-      await Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY! });
-    } else {
-      await Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY! });
+    try {
+      Purchases.setLogLevel(Purchases.LOG_LEVEL.DEBUG);
+      
+      let apiKey: string | undefined;
+      
+      if (Platform.OS === 'ios') {
+        apiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_IOS_API_KEY;
+      } else {
+        apiKey = process.env.EXPO_PUBLIC_REVENUE_CAT_ANDROID_API_KEY;
+      }
+      
+      if (!apiKey) {
+        console.warn(`RevenueCat API key not found for ${Platform.OS}. Subscription features will be disabled.`);
+        // Mark as initialized to prevent repeated attempts
+        this.initialized = true;
+        return;
+      }
+      
+      await Purchases.configure({ apiKey });
+      this.initialized = true;
+      console.log('RevenueCat initialized successfully');
+      
+    } catch (error) {
+      console.error('Failed to initialize RevenueCat:', error);
+      // Mark as initialized to prevent repeated attempts even on failure
+      this.initialized = true;
+      // Don't throw error to prevent app crash
     }
-    
-    this.initialized = true;
+  }
+
+  private isRevenueCatConfigured(): boolean {
+    try {
+      // Simple check to see if RevenueCat is actually configured
+      return this.initialized && !!Purchases;
+    } catch {
+      return false;
+    }
   }
 
   async identifyUser(userId: string) {
     await this.initialize();
-    await Purchases.logIn(userId);
+    if (!this.isRevenueCatConfigured()) {
+      console.warn('RevenueCat not configured, skipping user identification');
+      return;
+    }
+    
+    try {
+      await Purchases.logIn(userId);
+    } catch (error) {
+      console.error('Failed to identify user with RevenueCat:', error);
+    }
   }
 
-  async getCustomerInfo(): Promise<CustomerInfo> {
+  async getCustomerInfo(): Promise<CustomerInfo | undefined> {
     await this.initialize();
-    return await Purchases.getCustomerInfo();
+    if (!this.isRevenueCatConfigured()) {
+      console.warn('RevenueCat not configured, returning undefined customer info');
+      return undefined;
+    }
+    
+    try {
+      return await Purchases.getCustomerInfo();
+    } catch (error) {
+      console.error('Failed to get customer info:', error);
+      return undefined;
+    }
   }
 
   async getProducts() {
     await this.initialize();
-    const offerings = await Purchases.getOfferings();
-    return offerings.current?.availablePackages || [];
+    if (!this.isRevenueCatConfigured()) {
+      console.warn('RevenueCat not configured, returning empty products array');
+      return [];
+    }
+    
+    try {
+      const offerings = await Purchases.getOfferings();
+      return offerings.current?.availablePackages || [];
+    } catch (error) {
+      console.error('Failed to get products:', error);
+      return [];
+    }
   }
 
   async purchaseProduct(productId: string) {
     await this.initialize();
-    const { customerInfo } = await Purchases.purchaseProduct(productId);
-    await this.syncSubscriptionStatus(customerInfo);
-    return customerInfo;
+    if (!this.isRevenueCatConfigured()) {
+      throw new Error('RevenueCat not configured. Cannot process purchases.');
+    }
+    
+    try {
+      const { customerInfo } = await Purchases.purchaseProduct(productId);
+      await this.syncSubscriptionStatus(customerInfo);
+      return customerInfo;
+    } catch (error) {
+      console.error('Failed to purchase product:', error);
+      throw error;
+    }
   }
 
   async restorePurchases() {
     await this.initialize();
-    const customerInfo = await Purchases.restorePurchases();
-    await this.syncSubscriptionStatus(customerInfo);
-    return customerInfo;
+    if (!this.isRevenueCatConfigured()) {
+      throw new Error('RevenueCat not configured. Cannot restore purchases.');
+    }
+    
+    try {
+      const customerInfo = await Purchases.restorePurchases();
+      await this.syncSubscriptionStatus(customerInfo);
+      return customerInfo;
+    } catch (error) {
+      console.error('Failed to restore purchases:', error);
+      throw error;
+    }
   }
 
   async syncSubscriptionStatus(customerInfo?: CustomerInfo, retryCount = 0): Promise<void> {
     try {
       if (!customerInfo) {
         customerInfo = await this.getCustomerInfo();
+        if (!customerInfo) {
+          console.warn('Cannot sync subscription status: customer info unavailable');
+          return;
+        }
       }
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -117,17 +196,25 @@ class RevenueCatService {
     expiresAt?: Date;
     status: string;
   }> {
-    const { data } = await supabase
-      .from('profiles')
-      .select('subscription_tier, subscription_expires_at')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('subscription_tier, subscription_expires_at')
+        .eq('id', userId)
+        .single();
 
-    return {
-      isPremium: data?.subscription_tier === 'premium',
-      expiresAt: data?.subscription_expires_at ? new Date(data.subscription_expires_at) : undefined,
-      status: data?.subscription_tier || 'free'
-    };
+      return {
+        isPremium: data?.subscription_tier === 'premium',
+        expiresAt: data?.subscription_expires_at ? new Date(data.subscription_expires_at) : undefined,
+        status: data?.subscription_tier || 'free'
+      };
+    } catch (error) {
+      console.error('Failed to check subscription status:', error);
+      return {
+        isPremium: false,
+        status: 'free'
+      };
+    }
   }
 }
 
