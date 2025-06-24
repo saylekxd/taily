@@ -14,16 +14,5 @@ export default ({ config }) => {
       EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
       EXPO_PUBLIC_GEMINI_API_KEY: process.env.EXPO_PUBLIC_GEMINI_API_KEY,
     },
-    hooks: {
-      postPublish: [
-        {
-          file: '@sentry/react-native/expo',
-          config: {
-            organization: 'swtlabs-vn',
-            project: 'taily',
-          },
-        },
-      ],
-    },
   };
 }; 
