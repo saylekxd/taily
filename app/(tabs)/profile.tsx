@@ -23,6 +23,7 @@ import { supabase } from '@/lib/supabase';
 import ReadingStats from '@/components/ReadingStats';
 import AchievementsList from '@/components/AchievementsList';
 import ReadingInsights from '@/components/ReadingInsights';
+import AccountDeletion from '@/components/AccountDeletion';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -156,6 +157,9 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
       </View>
+
+      {/* Account Deletion */}
+      <AccountDeletion />
     </ScrollView>
   );
 }

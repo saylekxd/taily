@@ -23,7 +23,8 @@
     "welcomeToStoryTime": "Welcome to StoryTime!",
     "enterName": "Enter name",
     "delete": "Delete",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "ok": "OK"
   },
   "profile": {
     "title": "Profile",
@@ -36,7 +37,32 @@
     "settings": "Settings",
     "editProfile": "Edit Profile",
     "polishLanguage": "Polish Language",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "accountDeletion": {
+      "title": "Delete Account",
+      "description": "Permanently delete your account and all associated data. This action cannot be undone. You will have 30 days to cancel the deletion request.",
+      "requestDeletion": "Request Account Deletion",
+      "confirmRequest": "Confirm Deletion Request",
+      "confirmRequestMessage": "Are you sure you want to delete your account? This will permanently remove all your data after 30 days.",
+      "deleteAccount": "Delete My Account",
+      "requestSuccess": "Deletion Request Submitted",
+      "requestFailed": "Failed to request account deletion",
+      "pendingDeletion": "Account scheduled for deletion",
+      "scheduledDate": "Scheduled deletion date",
+      "daysRemaining": "Days remaining",
+      "days": "days",
+      "confirmationCode": "Confirmation code",
+      "cancelRequest": "Cancel Deletion Request",
+      "cancelSuccess": "Deletion Cancelled",
+      "cancelFailed": "Failed to cancel deletion",
+      "invalidConfirmationCode": "Invalid confirmation code format",
+      "reasonOptional": "Reason (optional)",
+      "reasonPlaceholder": "Tell us why you're leaving (optional)",
+      "requestModalDescription": "Your account deletion will be scheduled for 30 days from now. You can cancel this request at any time using the confirmation code that will be provided. You will be automatically logged out after submitting this request.",
+      "cancelModalDescription": "Enter your confirmation code to cancel the account deletion request.",
+      "confirmDeletion": "Confirm Deletion",
+      "cancelDeletion": "Cancel Deletion"
+    }
   },
   "onboarding": {
     "welcome": "Welcome to Taily!",

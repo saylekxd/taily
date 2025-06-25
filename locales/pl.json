@@ -23,7 +23,8 @@
     "welcomeToStoryTime": "Witaj w StoryTime!",
     "enterName": "Wpisz imię",
     "delete": "Usuń",
-    "dismiss": "Odrzuć"
+    "dismiss": "Odrzuć",
+    "ok": "OK"
   },
   "profile": {
     "title": "Profil",
@@ -36,7 +37,32 @@
     "settings": "Ustawienia",
     "editProfile": "Edytuj Profil",
     "polishLanguage": "Język Polski",
-    "signOut": "Wyloguj się"
+    "signOut": "Wyloguj się",
+    "accountDeletion": {
+      "title": "Usuń Konto",
+      "description": "Trwale usuń swoje konto i wszystkie powiązane dane. Ta akcja nie może być cofnięta. Będziesz mieć 30 dni na anulowanie żądania usunięcia.",
+      "requestDeletion": "Złóż Żądanie Usunięcia Konta",
+      "confirmRequest": "Potwierdź Żądanie Usunięcia",
+      "confirmRequestMessage": "Czy na pewno chcesz usunąć swoje konto? To trwale usunie wszystkie Twoje dane po 30 dniach.",
+      "deleteAccount": "Usuń Moje Konto",
+      "requestSuccess": "Żądanie Usunięcia Złożone",
+      "requestFailed": "Nie udało się złożyć żądania usunięcia konta",
+      "pendingDeletion": "Konto zaplanowane do usunięcia",
+      "scheduledDate": "Zaplanowana data usunięcia",
+      "daysRemaining": "Pozostało dni",
+      "days": "dni",
+      "confirmationCode": "Kod potwierdzenia",
+      "cancelRequest": "Anuluj Żądanie Usunięcia",
+      "cancelSuccess": "Usunięcie Anulowane",
+      "cancelFailed": "Nie udało się anulować usunięcia",
+      "invalidConfirmationCode": "Nieprawidłowy format kodu potwierdzenia",
+      "reasonOptional": "Powód (opcjonalny)",
+      "reasonPlaceholder": "Powiedz nam, dlaczego odchodzisz (opcjonalnie)",
+      "requestModalDescription": "Usunięcie Twojego konta zostanie zaplanowane na 30 dni od teraz. Możesz anulować to żądanie w dowolnym momencie używając kodu potwierdzenia, który zostanie Ci podany. Zostaniesz automatycznie wylogowany po złożeniu tego żądania.",
+      "cancelModalDescription": "Wprowadź swój kod potwierdzenia, aby anulować żądanie usunięcia konta.",
+      "confirmDeletion": "Potwierdź Usunięcie",
+      "cancelDeletion": "Anuluj Usunięcie"
+    }
   },
   "onboarding": {
     "welcome": "Witaj w Taily!",
