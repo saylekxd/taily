@@ -23,7 +23,7 @@ export default function PaywallScreen() {
   };
 
   const handlePurchase = async () => {
-    const productId = selectedPlan === 'monthly' ? 'premium_monthly' : 'premium_annual';
+    const productId = selectedPlan === 'monthly' ? 'com.saylekxd.Tailyapp.Monthly' : 'com.saylekxd.Tailyapp.Annual';
     
     try {
       setLoading(true);
