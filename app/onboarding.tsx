@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   TextInput,
   Animated,
-  Dimensions 
+  Dimensions,
+  Image 
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { 
@@ -15,7 +16,8 @@ import {
   ArrowLeft, 
   BookOpen, 
   Cake, 
-  Sparkles 
+  Sparkles,
+  User 
 } from 'lucide-react-native';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
@@ -205,7 +207,10 @@ export default function OnboardingScreen() {
         {/* Welcome Step */}
         <View style={styles.stepContainer}>
           <View style={styles.stepContent}>
-            <BookOpen size={64} color={colors.primary} />
+            <Image 
+              source={require('@/assets/images/dino_onboarding.png')} 
+              style={styles.dinoImage}
+            />
             <Text style={styles.stepTitle}>{t('common.welcomeToStoryTime')}</Text>
             <Text style={styles.stepDescription}>
               {t('onboarding.welcomeSubtitle')}
@@ -217,6 +222,7 @@ export default function OnboardingScreen() {
         {/* Name Step */}
         <View style={styles.stepContainer}>
           <View style={styles.stepContent}>
+            <User size={48} color={colors.primary} />
             <Text style={styles.stepTitle}>{t('onboarding.childName')}</Text>
             <Text style={styles.stepDescription}>
               {t('onboarding.interestsSubtitle')}
@@ -488,5 +494,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.white,
     marginRight: 8,
+  },
+  dinoImage: {
+    width: 74,
+    height: 74,
+    resizeMode: 'contain',
   },
 });
