@@ -243,6 +243,15 @@
     "alreadyHaveAccount": "Masz już konto?",
     "dontHaveAccount": "Nie masz konta?"
   },
+  "welcome": {
+    "tagline": "Magiczne spersonalizowane historie dla młodych czytelników",
+    "personalizedStories": "Historie generowane przez AI dopasowane do Twojego dziecka",
+    "ageAppropriate": "Treści odpowiednie dla wieku i poziomy czytania",
+    "interactiveReading": "Interaktywne czytanie z efektami dźwiękowymi",
+    "getStarted": "Zacznij",
+    "signInToAccount": "Zaloguj się do Konta",
+    "joinThousands": "Dołącz do tysięcy rodzin tworzących magiczne doświadczenia czytelnicze"
+  },
   "notFound": {
     "title": "Strona nie znaleziona",
     "goToHome": "Przejdź do strony głównej!"

@@ -6,6 +6,11 @@
     "scheme": "taily",
     "newArchEnabled": false,
     "platforms": ["ios", "android"],
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.saylekxd.Tailyapp",

@@ -243,6 +243,15 @@
     "alreadyHaveAccount": "Already have an account?",
     "dontHaveAccount": "Don't have an account?"
   },
+  "welcome": {
+    "tagline": "Magical personalized stories for young readers",
+    "personalizedStories": "AI-generated stories tailored to your child",
+    "ageAppropriate": "Age-appropriate content and reading levels",
+    "interactiveReading": "Interactive reading with sound effects",
+    "getStarted": "Get Started",
+    "signInToAccount": "Sign In to Your Account",
+    "joinThousands": "Join thousands of families creating magical reading experiences"
+  },
   "notFound": {
     "title": "Page not found",
     "goToHome": "Go to home screen!"

@@ -21,6 +21,7 @@ import { colors } from '@/constants/colors';
 import { revenueCatService } from '@/services/revenueCatService';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { appReadinessManager } from '@/utils/appReadiness';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
@@ -158,7 +159,13 @@ export default Sentry.wrap(function RootLayout() {
           
           if (sessionError) {
             console.error('Error getting session:', sessionError);
-            safeNavigate(router, '/auth/sign-in');
+            // Check if user has seen welcome screen
+            const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
+            if (!hasSeenWelcome) {
+              safeNavigate(router, '/welcome');
+            } else {
+              safeNavigate(router, '/auth/sign-in');
+            }
             return;
           }
           
@@ -193,8 +200,14 @@ export default Sentry.wrap(function RootLayout() {
               safeNavigate(router, '/onboarding');
             }
           } else {
-            console.log('No session, navigating to auth...');
-            safeNavigate(router, '/auth/sign-in');
+            console.log('No session, checking if user has seen welcome...');
+            // Check if user has seen welcome screen
+            const hasSeenWelcome = await AsyncStorage.getItem('hasSeenWelcome');
+            if (!hasSeenWelcome) {
+              safeNavigate(router, '/welcome');
+            } else {
+              safeNavigate(router, '/auth/sign-in');
+            }
           }
         } catch (error) {
           console.error('Error checking auth state:', error);
@@ -249,6 +262,7 @@ export default Sentry.wrap(function RootLayout() {
               safeNavigate(router, '/onboarding');
             }
           } else if (event === 'SIGNED_OUT') {
+            // On sign out, go directly to sign-in (user has already seen welcome)
             safeNavigate(router, '/auth/sign-in');
           }
         }
@@ -302,6 +316,7 @@ export default Sentry.wrap(function RootLayout() {
               animation: 'fade',
             }}
           >
+            <Stack.Screen name="welcome" options={{ headerShown: false, gestureEnabled: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
