@@ -15,6 +15,7 @@ import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/hooks/useI18n';
 import { colors } from '@/constants/colors';
+import RotatingLogoDecorator from '@/components/RotatingLogoDecorator';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -68,10 +69,16 @@ export default function SignUpScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Image
-            source={{ uri: 'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing//App-Icon-1024x1024@1x.png' }}
-            style={styles.logo}
-          />
+          <View style={styles.logoContainer}>
+            <Image
+              source={{ uri: 'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing//App-Icon-1024x1024@1x.png' }}
+              style={styles.logo}
+            />
+            <RotatingLogoDecorator
+              source={require('@/assets/images/black_circle_360x360.png')}
+              style={styles.logoDecorator}
+            />
+          </View>
           <Text style={styles.title}>{t('auth.createAccount')}</Text>
           <Text style={styles.subtitle}>{t('auth.signUpSubtitle')}</Text>
         </View>
@@ -157,11 +164,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 40,
   },
+  logoContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
   logo: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    marginBottom: 20,
+  },
+  logoDecorator: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    width: 50,
+    height: 50,
+    borderRadius: 16,
   },
   title: {
     fontFamily: 'Nunito-ExtraBold',
