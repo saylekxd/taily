@@ -182,9 +182,16 @@ export default function PaywallScreen() {
             Start Premium - {getPlanDetails().price}/{getPlanDetails().period}
           </Text>
           <Text style={styles.purchaseButtonSubtext}>
-            {getPlanDetails().savings ? `Save ${getPlanDetails().savings} per year • ` : ''}Cancel anytime
+            {getPlanDetails().savings ? `Save ${getPlanDetails().savings} per year • ` : ''}Cancel anytime in Settings
           </Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.subscriptionTerms}>
+        <Text style={styles.termsText}>
+          Subscription automatically renews unless cancelled at least 24 hours before the end of the current period. 
+          You can cancel anytime in your device's App Store settings. Payment will be charged to your iTunes Account at confirmation of purchase.
+        </Text>
       </View>
 
       <View style={styles.footer}>
@@ -376,5 +383,15 @@ const styles = StyleSheet.create({
   cancelText: {
     color: '#999',
     fontSize: 16,
+  },
+  subscriptionTerms: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  termsText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 16,
   },
 }); 
