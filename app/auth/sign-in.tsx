@@ -8,7 +8,8 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Linking
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +45,14 @@ export default function SignInScreen() {
     setLoading(false);
   };
 
+  const openPrivacyPolicy = () => {
+    Linking.openURL('https://www.tailyapp.io/privacy');
+  };
+
+  const openTermsOfUse = () => {
+    Linking.openURL('https://www.tailyapp.io/terms');
+  };
+
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -56,7 +65,7 @@ export default function SignInScreen() {
       >
         <View style={styles.header}>
           <Image
-            source={{ uri: 'https://images.pexels.com/photos/4021521/pexels-photo-4021521.jpeg' }}
+            source={{ uri: 'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing//App-Icon-1024x1024@1x.png' }}
             style={styles.logo}
           />
           <Text style={styles.title}>{t('auth.welcomeBack')}</Text>
@@ -110,6 +119,18 @@ export default function SignInScreen() {
           >
             <Text style={styles.linkText}>{t('auth.signUp')}</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.legalLinks}>
+          <View style={styles.legalLinksRow}>
+            <TouchableOpacity onPress={openPrivacyPolicy}>
+              <Text style={styles.legalLinkText}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalSeparator}> • </Text>
+            <TouchableOpacity onPress={openTermsOfUse}>
+              <Text style={styles.legalLinkText}>Terms of Use</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -202,5 +223,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
+  },
+  legalLinks: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legalLinkText: {
+    color: colors.textSecondary,
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    color: colors.textSecondary,
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
   },
 });

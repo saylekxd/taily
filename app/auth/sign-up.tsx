@@ -8,7 +8,8 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Linking
 } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -49,6 +50,14 @@ export default function SignUpScreen() {
     }
   };
 
+  const openPrivacyPolicy = () => {
+    Linking.openURL('https://www.tailyapp.io/privacy');
+  };
+
+  const openTermsOfUse = () => {
+    Linking.openURL('https://www.tailyapp.io/terms');
+  };
+
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -60,7 +69,7 @@ export default function SignUpScreen() {
       >
         <View style={styles.header}>
           <Image
-            source={{ uri: 'https://images.pexels.com/photos/4021521/pexels-photo-4021521.jpeg' }}
+            source={{ uri: 'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing//App-Icon-1024x1024@1x.png' }}
             style={styles.logo}
           />
           <Text style={styles.title}>{t('auth.createAccount')}</Text>
@@ -93,7 +102,7 @@ export default function SignUpScreen() {
 
           <TextInput
             style={styles.input}
-            placeholder={t('auth.confirmPassword')}
+            placeholder={t('common.confirmPassword')}
             placeholderTextColor={colors.textSecondary}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -115,6 +124,18 @@ export default function SignUpScreen() {
             <Link href="/auth/sign-in" style={styles.link}>
               {t('auth.signIn')}
             </Link>
+          </View>
+        </View>
+
+        <View style={styles.legalLinks}>
+          <View style={styles.legalLinksRow}>
+            <TouchableOpacity onPress={openPrivacyPolicy}>
+              <Text style={styles.legalLinkText}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalSeparator}> • </Text>
+            <TouchableOpacity onPress={openTermsOfUse}>
+              <Text style={styles.legalLinkText}>Terms of Use</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -168,6 +189,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Regular',
     fontSize: 16,
   },
+  agreementText: {
+    color: colors.textSecondary,
+    fontFamily: 'Nunito-Regular',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  agreementLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
+  },
   button: {
     backgroundColor: colors.primary,
     borderRadius: 12,
@@ -204,5 +237,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
+  },
+  legalLinks: {
+    marginTop: 32,
+    alignItems: 'center',
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  legalLinkText: {
+    color: colors.textSecondary,
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    color: colors.textSecondary,
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
   },
 });
