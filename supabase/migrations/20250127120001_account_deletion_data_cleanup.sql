@@ -187,4 +187,17 @@ COMMENT ON FUNCTION public.delete_user_data(UUID) IS
 'Function to safely delete all user-related data from all tables. This function ensures referential integrity and provides error handling. Should only be called after proper authorization and grace period validation.';
 
 COMMENT ON TABLE public.account_deletion_requests IS 
-'Table to track account deletion requests with 30-day grace period as required by App Store guidelines. Users can cancel deletion requests during the grace period using their confirmation code.'; 
+'Table to track account deletion requests with 30-day grace period as required by App Store guidelines. Users can cancel deletion requests during the grace period using their confirmation code.';
+
+-- Add environment tracking for subscriptions
+ALTER TABLE revenue_cat_events 
+ADD COLUMN IF NOT EXISTS environment TEXT DEFAULT 'PRODUCTION',
+ADD COLUMN IF NOT EXISTS store TEXT DEFAULT 'APP_STORE';
+
+ALTER TABLE user_subscriptions 
+ADD COLUMN IF NOT EXISTS environment TEXT DEFAULT 'PRODUCTION',
+ADD COLUMN IF NOT EXISTS store TEXT DEFAULT 'APP_STORE';
+
+-- Add index for faster queries
+CREATE INDEX IF NOT EXISTS idx_revenue_cat_events_environment ON revenue_cat_events(environment);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_environment ON user_subscriptions(environment); 

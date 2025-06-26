@@ -6,6 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface RevenueCatEvent {
+  type: string;
+  app_user_id: string;
+  product_id?: string;
+  id?: string;
+  expiration_at_ms?: number;
+  environment?: 'SANDBOX' | 'PRODUCTION';
+  store?: 'APP_STORE' | 'PLAY_STORE';
+  customer_info?: any;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -22,128 +33,212 @@ serve(async (req) => {
     );
 
     const payload = await req.json();
-    const { event } = payload;
+    const { event }: { event: RevenueCatEvent } = payload;
 
-    // Verify webhook signature (recommended for production)
-    // const signature = req.headers.get('X-RevenueCat-Signature');
-    // if (!verifyWebhookSignature(signature, JSON.stringify(payload))) {
-    //   return new Response('Invalid signature', { status: 401 });
-    // }
+    console.log('RevenueCat webhook received:', {
+      type: event.type,
+      app_user_id: event.app_user_id,
+      product_id: event.product_id,
+      environment: event.environment,
+      store: event.store
+    });
 
-    // Log the webhook event
-    await supabase
-      .from('revenue_cat_events')
-      .insert({
-        user_id: event.app_user_id,
-        event_type: event.type,
-        revenue_cat_customer_id: event.app_user_id,
-        product_id: event.product_id,
-        subscription_id: event.id,
-        event_data: event,
-        processed_at: new Date().toISOString()
-      });
+    // Enhanced logging for debugging
+    if (!event.app_user_id) {
+      console.error('Missing app_user_id in webhook event:', event);
+      return new Response('Invalid event: missing app_user_id', { status: 400 });
+    }
 
-    // Handle different event types
-    switch (event.type) {
-      case 'INITIAL_PURCHASE':
-      case 'RENEWAL':
-      case 'PRODUCT_CHANGE':
-        await handleSubscriptionActivation(supabase, event);
-        break;
-      
-      case 'CANCELLATION':
-      case 'EXPIRATION':
-        await handleSubscriptionDeactivation(supabase, event);
-        break;
-      
-      case 'BILLING_ISSUE':
-        await handleBillingIssue(supabase, event);
-        break;
-      
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
+    // Log the webhook event with enhanced error handling
+    try {
+      await supabase
+        .from('revenue_cat_events')
+        .insert({
+          user_id: event.app_user_id,
+          event_type: event.type,
+          revenue_cat_customer_id: event.app_user_id,
+          product_id: event.product_id || null,
+          subscription_id: event.id || null,
+          event_data: event,
+          environment: event.environment || 'UNKNOWN',
+          store: event.store || 'UNKNOWN',
+          processed_at: new Date().toISOString()
+        });
+    } catch (logError) {
+      console.error('Failed to log webhook event:', logError);
+      // Continue processing even if logging fails
+    }
+
+    // Handle different event types with better error handling
+    try {
+      switch (event.type) {
+        case 'INITIAL_PURCHASE':
+        case 'RENEWAL':
+        case 'PRODUCT_CHANGE':
+          await handleSubscriptionActivation(supabase, event);
+          break;
+        
+        case 'CANCELLATION':
+        case 'EXPIRATION':
+          await handleSubscriptionDeactivation(supabase, event);
+          break;
+        
+        case 'BILLING_ISSUE':
+          await handleBillingIssue(supabase, event);
+          break;
+        
+        case 'NON_RENEWING_PURCHASE':
+          console.log('Non-renewing purchase event - no action needed');
+          break;
+        
+        default:
+          console.log(`Unhandled event type: ${event.type}`);
+      }
+    } catch (handlerError) {
+      console.error(`Error handling ${event.type} event:`, handlerError);
+      // Return error for critical subscription events
+      if (['INITIAL_PURCHASE', 'RENEWAL', 'CANCELLATION', 'EXPIRATION'].includes(event.type)) {
+        throw handlerError;
+      }
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, processed_event: event.type }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Webhook error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400 
+        status: 500 
       }
     );
   }
 });
 
-async function handleSubscriptionActivation(supabase: any, event: any) {
+async function handleSubscriptionActivation(supabase: any, event: RevenueCatEvent) {
   const userId = event.app_user_id;
   const expiryDate = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
   
-  // Update profiles table
-  await supabase
-    .from('profiles')
-    .update({
-      subscription_tier: 'premium',
-      subscription_expires_at: expiryDate
-    })
-    .eq('id', userId);
+  console.log(`Activating subscription for user ${userId}, expires: ${expiryDate}`);
+  
+  try {
+    // Update profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        subscription_tier: 'premium',
+        subscription_expires_at: expiryDate,
+        revenue_cat_customer_id: event.app_user_id
+      })
+      .eq('id', userId);
 
-  // Update subscription record
-  await supabase
-    .from('user_subscriptions')
-    .upsert({
-      user_id: userId,
-      subscription_status: 'premium',
-      revenue_cat_customer_id: event.app_user_id,
-      product_id: event.product_id,
-      expiry_date: expiryDate,
-      is_active: true,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id'
-    });
+    if (profileError) {
+      console.error('Failed to update profile:', profileError);
+      throw new Error(`Profile update failed: ${profileError.message}`);
+    }
+
+    // Update subscription record
+    const { error: subscriptionError } = await supabase
+      .from('user_subscriptions')
+      .upsert({
+        user_id: userId,
+        subscription_status: 'premium',
+        revenue_cat_customer_id: event.app_user_id,
+        product_id: event.product_id,
+        expiry_date: expiryDate,
+        is_active: true,
+        environment: event.environment || 'PRODUCTION',
+        store: event.store || 'APP_STORE',
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
+      });
+
+    if (subscriptionError) {
+      console.error('Failed to update subscription:', subscriptionError);
+      throw new Error(`Subscription update failed: ${subscriptionError.message}`);
+    }
+
+    console.log(`Successfully activated subscription for user ${userId}`);
+  } catch (error) {
+    console.error(`Error in handleSubscriptionActivation for user ${userId}:`, error);
+    throw error;
+  }
 }
 
-async function handleSubscriptionDeactivation(supabase: any, event: any) {
+async function handleSubscriptionDeactivation(supabase: any, event: RevenueCatEvent) {
   const userId = event.app_user_id;
   
-  // Update profiles table
-  await supabase
-    .from('profiles')
-    .update({
-      subscription_tier: 'free',
-      subscription_expires_at: null
-    })
-    .eq('id', userId);
+  console.log(`Deactivating subscription for user ${userId}`);
+  
+  try {
+    // Update profiles table
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        subscription_tier: 'free',
+        subscription_expires_at: null
+      })
+      .eq('id', userId);
 
-  // Update subscription record
-  await supabase
-    .from('user_subscriptions')
-    .update({
-      subscription_status: 'expired',
-      is_active: false,
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', userId);
+    if (profileError) {
+      console.error('Failed to update profile:', profileError);
+      throw new Error(`Profile update failed: ${profileError.message}`);
+    }
+
+    // Update subscription record
+    const { error: subscriptionError } = await supabase
+      .from('user_subscriptions')
+      .update({
+        subscription_status: 'expired',
+        is_active: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (subscriptionError) {
+      console.error('Failed to update subscription:', subscriptionError);
+      throw new Error(`Subscription update failed: ${subscriptionError.message}`);
+    }
+
+    console.log(`Successfully deactivated subscription for user ${userId}`);
+  } catch (error) {
+    console.error(`Error in handleSubscriptionDeactivation for user ${userId}:`, error);
+    throw error;
+  }
 }
 
-async function handleBillingIssue(supabase: any, event: any) {
+async function handleBillingIssue(supabase: any, event: RevenueCatEvent) {
   const userId = event.app_user_id;
   
-  // Update subscription status to indicate billing issue
-  await supabase
-    .from('user_subscriptions')
-    .update({
-      subscription_status: 'billing_issue',
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', userId);
+  console.log(`Handling billing issue for user ${userId}`);
   
-  // Note: Don't immediately revoke access, give user time to resolve
+  try {
+    // Update subscription status to indicate billing issue
+    const { error: subscriptionError } = await supabase
+      .from('user_subscriptions')
+      .update({
+        subscription_status: 'billing_issue',
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (subscriptionError) {
+      console.error('Failed to update subscription for billing issue:', subscriptionError);
+      throw new Error(`Subscription update failed: ${subscriptionError.message}`);
+    }
+    
+    console.log(`Successfully marked billing issue for user ${userId}`);
+    // Note: Don't immediately revoke access, give user time to resolve
+  } catch (error) {
+    console.error(`Error in handleBillingIssue for user ${userId}:`, error);
+    throw error;
+  }
 } 

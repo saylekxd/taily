@@ -93,19 +93,72 @@ class RevenueCatService {
     }
   }
 
-  async purchaseProduct(productId: string) {
+  async purchaseProduct(productId: string, retryCount = 0): Promise<CustomerInfo> {
     await this.initialize();
     if (!this.isRevenueCatConfigured()) {
       throw new Error('RevenueCat not configured. Cannot process purchases.');
     }
     
     try {
+      console.log(`Attempting to purchase product: ${productId} (attempt ${retryCount + 1})`);
+      
+      // First, ensure we have the latest customer info
+      const currentCustomerInfo = await this.getCustomerInfo();
+      
+      // Check if already subscribed to avoid duplicate purchases
+      if (currentCustomerInfo?.entitlements.active['premium']) {
+        console.log('User already has active premium subscription');
+        await this.syncSubscriptionStatus(currentCustomerInfo);
+        return currentCustomerInfo;
+      }
+      
       const { customerInfo } = await Purchases.purchaseProduct(productId);
+      console.log('Purchase successful, syncing subscription status');
+      
       await this.syncSubscriptionStatus(customerInfo);
       return customerInfo;
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('Failed to purchase product:', error);
-      throw error;
+      
+      // Handle specific RevenueCat error codes
+      if (error.code) {
+        switch (error.code) {
+          case 'PURCHASE_CANCELLED':
+            throw new Error('Purchase was cancelled by user');
+          case 'STORE_PROBLEM':
+            if (retryCount < 2) {
+              console.log(`Store problem, retrying purchase (attempt ${retryCount + 2}/3)`);
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              return this.purchaseProduct(productId, retryCount + 1);
+            }
+            throw new Error('App Store is currently unavailable. Please try again later.');
+          case 'PURCHASE_NOT_ALLOWED':
+            throw new Error('Purchases are not allowed on this device');
+          case 'PURCHASE_INVALID':
+            throw new Error('This product is not available for purchase');
+          case 'PRODUCT_NOT_AVAILABLE':
+            throw new Error('This subscription is not currently available');
+          case 'NETWORK_ERROR':
+            if (retryCount < 2) {
+              console.log(`Network error, retrying purchase (attempt ${retryCount + 2}/3)`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              return this.purchaseProduct(productId, retryCount + 1);
+            }
+            throw new Error('Network connection failed. Please check your internet connection and try again.');
+          default:
+            console.error('Unknown purchase error:', error);
+        }
+      }
+      
+      // Generic retry for unknown errors
+      if (retryCount < 1) {
+        console.log(`Unknown error, retrying purchase (attempt ${retryCount + 2}/2)`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        return this.purchaseProduct(productId, retryCount + 1);
+      }
+      
+      throw new Error(error.message || 'Purchase failed. Please try again.');
     }
   }
 
