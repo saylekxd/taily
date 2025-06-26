@@ -5,11 +5,13 @@ import { revenueCatService } from '@/services/revenueCatService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/constants/colors';
 import { X, Check, Crown } from 'lucide-react-native';
+import { ParentalGate } from './ParentalGate';
 
 export default function PaywallScreen() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual'); // Default to annual for better value
+  const [showParentalGate, setShowParentalGate] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -25,6 +27,13 @@ export default function PaywallScreen() {
   };
 
   const handlePurchase = async () => {
+    // Show parental gate first
+    setShowParentalGate(true);
+  };
+
+  const handleParentalGateSuccess = async () => {
+    setShowParentalGate(false);
+    
     const productId = selectedPlan === 'monthly' ? 'com.saylekxd.Tailyapp.Monthly' : 'com.saylekxd.Tailyapp.Annual';
     
     try {
@@ -38,6 +47,10 @@ export default function PaywallScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleParentalGateCancel = () => {
+    setShowParentalGate(false);
   };
 
   const getPlanDetails = () => {
@@ -241,6 +254,15 @@ export default function PaywallScreen() {
           <Text style={styles.cancelText}>Maybe Later</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Parental Gate Modal */}
+      <ParentalGate
+        visible={showParentalGate}
+        onSuccess={handleParentalGateSuccess}
+        onCancel={handleParentalGateCancel}
+        purpose="purchase"
+        description={`You are about to purchase ${getPlanDetails().title} for ${getPlanDetails().fullPrice}. This subscription will automatically renew unless cancelled.`}
+      />
     </ScrollView>
   );
 }

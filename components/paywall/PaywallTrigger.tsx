@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/constants/colors';
 import { X, Check, Crown } from 'lucide-react-native';
+import { ParentalGate } from './ParentalGate';
 
 interface PaywallTriggerProps {
   visible: boolean;
@@ -13,6 +14,8 @@ interface PaywallTriggerProps {
 }
 
 export function PaywallTrigger({ visible, onClose, feature, customMessage }: PaywallTriggerProps) {
+  const [showParentalGate, setShowParentalGate] = useState(false);
+
   const getFeatureDetails = () => {
     switch (feature) {
       case 'ai_story':
@@ -49,8 +52,18 @@ export function PaywallTrigger({ visible, onClose, feature, customMessage }: Pay
   const details = getFeatureDetails();
 
   const handleUpgrade = () => {
+    // Show parental gate first before navigating to paywall
+    setShowParentalGate(true);
+  };
+
+  const handleParentalGateSuccess = () => {
+    setShowParentalGate(false);
     onClose();
     router.push('/paywall');
+  };
+
+  const handleParentalGateCancel = () => {
+    setShowParentalGate(false);
   };
 
   return (
@@ -114,6 +127,15 @@ export function PaywallTrigger({ visible, onClose, feature, customMessage }: Pay
           </View>
         </View>
       </View>
+
+      {/* Parental Gate Modal */}
+      <ParentalGate
+        visible={showParentalGate}
+        onSuccess={handleParentalGateSuccess}
+        onCancel={handleParentalGateCancel}
+        purpose="purchase"
+        description={`You are about to access premium subscription options for ${details.title}. This will allow your child to purchase premium features.`}
+      />
     </Modal>
   );
 }
