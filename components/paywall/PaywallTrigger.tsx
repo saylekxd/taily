@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { colors } from '@/constants/colors';
+import { X, Check, Crown } from 'lucide-react-native';
 
 interface PaywallTriggerProps {
   visible: boolean;
@@ -60,35 +62,48 @@ export function PaywallTrigger({ visible, onClose, feature, customMessage }: Pay
     >
       <View style={styles.overlay}>
         <View style={styles.container}>
-          <LinearGradient
-            colors={['#667eea', '#764ba2']}
-            style={styles.header}
-          >
+          {/* Header */}
+          <View style={styles.header}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={onClose}
+            >
+              <X size={20} color={colors.white} />
+            </TouchableOpacity>
+            
+            <Crown size={40} color={colors.accent} />
             <Text style={styles.icon}>{details.icon}</Text>
             <Text style={styles.title}>{details.title}</Text>
-          </LinearGradient>
+          </View>
           
+          {/* Content */}
           <View style={styles.content}>
             <Text style={styles.message}>{details.message}</Text>
             
             <View style={styles.benefitsList}>
               {details.benefits.map((benefit, index) => (
                 <View key={index} style={styles.benefitItem}>
-                  <Text style={styles.checkmark}>✓</Text>
+                  <Check size={16} color={colors.success} />
                   <Text style={styles.benefitText}>{benefit}</Text>
                 </View>
               ))}
             </View>
           </View>
           
+          {/* Buttons */}
           <View style={styles.buttons}>
-                    <TouchableOpacity 
-          style={styles.upgradeButton}
-          onPress={handleUpgrade}
-        >
-          <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
-          <Text style={styles.upgradeButtonSubtext}>Starting at $3.33/month</Text>
-        </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.upgradeButton}
+              onPress={handleUpgrade}
+            >
+              <LinearGradient
+                colors={[colors.primary, '#FF8E8E']}
+                style={styles.upgradeButtonGradient}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade to Premium</Text>
+                <Text style={styles.upgradeButtonSubtext}>View Plans & Pricing</Text>
+              </LinearGradient>
+            </TouchableOpacity>
             
             <TouchableOpacity 
               style={styles.cancelButton}
@@ -106,88 +121,119 @@ export function PaywallTrigger({ visible, onClose, feature, customMessage }: Pay
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
   container: {
-    backgroundColor: 'white',
+    backgroundColor: colors.card,
     borderRadius: 20,
-    overflow: 'hidden',
     width: '100%',
     maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   header: {
-    padding: 30,
+    padding: 24,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.cardLight,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   icon: {
-    fontSize: 48,
-    marginBottom: 10,
+    fontSize: 40,
+    marginTop: 8,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
+    fontFamily: 'Nunito-ExtraBold',
+    fontSize: 22,
+    color: colors.white,
     textAlign: 'center',
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingBottom: 8,
   },
   message: {
+    fontFamily: 'Nunito-Regular',
     fontSize: 16,
     lineHeight: 24,
-    color: '#333',
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   benefitsList: {
-    marginBottom: 20,
+    marginBottom: 8,
   },
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  checkmark: {
-    fontSize: 16,
-    color: '#4CAF50',
-    fontWeight: 'bold',
-    marginRight: 10,
+    marginBottom: 12,
+    paddingHorizontal: 8,
   },
   benefitText: {
+    fontFamily: 'Nunito-Regular',
     fontSize: 16,
-    color: '#333',
+    color: colors.white,
     flex: 1,
+    marginLeft: 12,
   },
   buttons: {
-    padding: 20,
-    paddingTop: 0,
+    padding: 24,
+    paddingTop: 16,
   },
   upgradeButton: {
-    backgroundColor: '#667eea',
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  upgradeButtonGradient: {
+    paddingVertical: 16,
     alignItems: 'center',
   },
   upgradeButtonText: {
-    color: 'white',
+    fontFamily: 'Nunito-Bold',
+    color: colors.white,
     fontSize: 18,
-    fontWeight: 'bold',
   },
   upgradeButtonSubtext: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontFamily: 'Nunito-Regular',
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 14,
     marginTop: 2,
   },
   cancelButton: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#666',
+    fontFamily: 'Nunito-Regular',
+    color: colors.textSecondary,
     fontSize: 16,
   },
 }); 
