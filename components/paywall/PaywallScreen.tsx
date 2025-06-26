@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, Linking } from 'react-native';
 import { router } from 'expo-router';
 import { revenueCatService } from '@/services/revenueCatService';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,14 +44,20 @@ export default function PaywallScreen() {
         price: '$4.99',
         period: 'month',
         totalYear: '$59.88',
-        savings: null
+        savings: null,
+        title: 'Taily Premium Monthly',
+        duration: '1 month',
+        fullPrice: '$4.99 per month'
       };
     } else {
       return {
         price: '$39.99',
         period: 'year',
         totalYear: '$39.99',
-        savings: '$19.89' // 33% discount compared to monthly
+        savings: '$19.89', // 33% discount compared to monthly
+        title: 'Taily Premium Annual',
+        duration: '1 year',
+        fullPrice: '$39.99 per year'
       };
     }
   };
@@ -66,6 +72,18 @@ export default function PaywallScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const openPrivacyPolicy = () => {
+    Linking.openURL('https://www.tailyapp.io/privacy');
+  };
+
+  const openTermsOfUse = () => {
+    Linking.openURL('https://www.tailyapp.io/terms');
+  };
+
+  const openAppleEULA = () => {
+    Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/');
   };
 
   return (
@@ -172,6 +190,17 @@ export default function PaywallScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Required Subscription Information */}
+        <View style={styles.subscriptionInfo}>
+          <Text style={styles.subscriptionInfoTitle}>Subscription Details</Text>
+          <Text style={styles.subscriptionInfoText}>
+            • Title: {getPlanDetails().title}{'\n'}
+            • Length: {getPlanDetails().duration}{'\n'}
+            • Price: {getPlanDetails().fullPrice}{'\n'}
+            • Content: Unlimited AI-generated personalized stories, professional audio narration, and full story access
+          </Text>
+        </View>
+
         {/* Purchase Button */}
         <TouchableOpacity 
           style={styles.purchaseButton}
@@ -192,6 +221,25 @@ export default function PaywallScreen() {
           Subscription automatically renews unless cancelled at least 24 hours before the end of the current period. 
           You can cancel anytime in your device's App Store settings. Payment will be charged to your iTunes Account at confirmation of purchase.
         </Text>
+      </View>
+
+      {/* Required Legal Links */}
+      <View style={styles.legalSection}>
+        <Text style={styles.legalSectionTitle}>Legal Information</Text>
+        
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={openPrivacyPolicy} style={styles.legalLink}>
+            <Text style={styles.legalLinkText}>Privacy Policy</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity onPress={openTermsOfUse} style={styles.legalLink}>
+            <Text style={styles.legalLinkText}>Terms of Use</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity onPress={openAppleEULA} style={styles.legalLink}>
+            <Text style={styles.legalLinkText}>End User License Agreement (EULA)</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.footer}>
@@ -393,5 +441,44 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  subscriptionInfo: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  subscriptionInfoTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  subscriptionInfoText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'left',
+  },
+  legalSection: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  legalSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  legalLink: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 5,
+  },
+  legalLinkText: {
+    color: '#667eea',
+    fontSize: 14,
   },
 }); 
