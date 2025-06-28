@@ -145,6 +145,12 @@ export async function deletePersonalizedStory(storyId: string, userId: string): 
  */
 export async function getUserStoryLimitInfo(userId: string): Promise<{ currentCount: number; maxCount: number; canGenerate: boolean }> {
   try {
+    // Validate userId
+    if (!userId || userId.trim() === '') {
+      console.warn('getUserStoryLimitInfo called with invalid userId');
+      return { currentCount: 0, maxCount: 2, canGenerate: false };
+    }
+    
     const limitCheck = await subscriptionService.checkAIStoryGenerationLimit(userId);
     
     return {

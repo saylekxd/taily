@@ -65,7 +65,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   };
 
   const refreshSubscription = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user, skipping subscription refresh');
+      return;
+    }
     
     try {
       setLoading(true);
@@ -75,6 +78,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       setSubscription(status);
     } catch (error) {
       console.error('Error refreshing subscription:', error);
+      // If error occurs (e.g., user signed out), reset subscription
+      setSubscription(null);
     } finally {
       setLoading(false);
     }

@@ -112,11 +112,13 @@ export default function HomeScreen() {
           text: t('common.delete'), 
           style: 'destructive',
           onPress: async () => {
-            const success = await deletePersonalizedStory(storyId, user?.id || '');
+            if (!user?.id) return;
+            
+            const success = await deletePersonalizedStory(storyId, user.id);
             if (success) {
               setPersonalizedStories(prev => prev.filter(s => s.id !== storyId));
               // Update limit info
-              const info = await getUserStoryLimitInfo(user?.id || '');
+              const info = await getUserStoryLimitInfo(user.id);
               setLimitInfo(info);
             } else {
               Alert.alert(t('common.error'), t('story.deleteStoryError'));

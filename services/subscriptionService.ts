@@ -71,6 +71,21 @@ class SubscriptionService {
       usage = newUsage;
     }
 
+    // If still no usage record, return default values
+    if (!usage) {
+      console.error('Failed to create usage record for user:', userId);
+      return {
+        canGenerate: !isPremium && 0 < 2, // Free users can generate if they haven't used any
+        reason: 'Unable to check usage limits. Please try again.',
+        usageInfo: {
+          lifetimeUsed: 0,
+          todayUsed: 0,
+          limit: 2,
+          resetTime: undefined
+        }
+      };
+    }
+
     // Check if daily reset is needed (for premium users)
     const today = new Date().toISOString().split('T')[0];
     const lastReset = usage.ai_stories_last_reset_date ? 
@@ -92,7 +107,7 @@ class SubscriptionService {
 
     if (isPremium) {
       // Premium: 2 stories per day
-      const canGenerate = usage.ai_stories_generated_today < 2;
+      const canGenerate = (usage.ai_stories_generated_today || 0) < 2;
       const nextReset = new Date();
       nextReset.setDate(nextReset.getDate() + 1);
       nextReset.setHours(0, 0, 0, 0);
@@ -101,22 +116,22 @@ class SubscriptionService {
         canGenerate,
         reason: canGenerate ? undefined : 'Daily limit of 2 AI stories reached. Resets at midnight.',
         usageInfo: {
-          lifetimeUsed: usage.ai_stories_generated_lifetime,
-          todayUsed: usage.ai_stories_generated_today,
+          lifetimeUsed: usage.ai_stories_generated_lifetime || 0,
+          todayUsed: usage.ai_stories_generated_today || 0,
           limit: 2,
           resetTime: nextReset
         }
       };
     } else {
       // Free: 2 lifetime stories
-      const canGenerate = usage.ai_stories_generated_lifetime < 2;
+      const canGenerate = (usage.ai_stories_generated_lifetime || 0) < 2;
       
       return {
         canGenerate,
         reason: canGenerate ? undefined : 'You\'ve used your 2 lifetime AI stories. Upgrade to Premium for 2 stories daily!',
         usageInfo: {
-          lifetimeUsed: usage.ai_stories_generated_lifetime,
-          todayUsed: usage.ai_stories_generated_today,
+          lifetimeUsed: usage.ai_stories_generated_lifetime || 0,
+          todayUsed: usage.ai_stories_generated_today || 0,
           limit: 2
         }
       };
@@ -165,6 +180,24 @@ class SubscriptionService {
       usage = newUsage;
     }
 
+    // If still no usage record, return default values
+    if (!usage) {
+      console.error('Failed to create usage record for user:', userId);
+      const nextReset = new Date();
+      nextReset.setMonth(nextReset.getMonth() + 1, 1);
+      nextReset.setHours(0, 0, 0, 0);
+      
+      return {
+        canGenerate: true, // Allow first audio generation
+        reason: undefined,
+        usageInfo: {
+          monthlyUsed: 0,
+          monthlyLimit: 2,
+          resetDate: nextReset
+        }
+      };
+    }
+
     // Check if monthly reset is needed
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
     const lastResetMonth = usage.audio_generations_last_reset_date ? 
@@ -183,7 +216,7 @@ class SubscriptionService {
       usage.audio_generations_this_month = 0;
     }
 
-    const canGenerate = usage.audio_generations_this_month < 2;
+    const canGenerate = (usage.audio_generations_this_month || 0) < 2;
     const nextReset = new Date();
     nextReset.setMonth(nextReset.getMonth() + 1, 1);
     nextReset.setHours(0, 0, 0, 0);
@@ -192,7 +225,7 @@ class SubscriptionService {
       canGenerate,
       reason: canGenerate ? undefined : 'Monthly limit of 2 audio generations reached. Resets next month.',
       usageInfo: {
-        monthlyUsed: usage.audio_generations_this_month,
+        monthlyUsed: usage.audio_generations_this_month || 0,
         monthlyLimit: 2,
         resetDate: nextReset
       }
