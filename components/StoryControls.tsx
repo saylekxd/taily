@@ -13,6 +13,7 @@ import {
 import { colors } from '@/constants/colors';
 import { useAudioPlayer } from '@/hooks/useAudioPlayer';
 import { audioService, AudioUsage } from '@/services/audioService';
+import { subscriptionService } from '@/services/subscriptionService';
 import { useUser } from '@/hooks/useUser';
 import ShareButton from '@/components/ShareButton';
 import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
@@ -48,8 +49,10 @@ export default function StoryControls({
   const [userLanguage, setUserLanguage] = useState<'en' | 'pl'>('en');
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallMessage, setPaywallMessage] = useState<string>();
+  const [isPremium, setIsPremium] = useState(false);
+  const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
 
-  const { profile } = useUser();
+  const { profile, user, isGuestMode } = useUser();
 
   const audioPlayer = useAudioPlayer({
     storyId,
@@ -60,10 +63,11 @@ export default function StoryControls({
   // Load user language from profile and check audio availability
   useEffect(() => {
     loadUserLanguageFromProfile();
+    loadSubscriptionStatus();
     if (isPersonalized) {
       loadUsage();
     }
-  }, [profile]);
+  }, [profile, user]);
 
   // Check audio availability when language changes
   useEffect(() => {
@@ -74,6 +78,26 @@ export default function StoryControls({
     // Get language from user profile, fallback to 'en'
     const language = profile?.language || 'en';
     setUserLanguage(language);
+  };
+
+  const loadSubscriptionStatus = async () => {
+    try {
+      setIsCheckingSubscription(true);
+      
+      // Guest users are not premium
+      if (isGuestMode || !user?.id) {
+        setIsPremium(false);
+        return;
+      }
+
+      const subscriptionStatus = await subscriptionService.getUserSubscriptionStatus(user.id);
+      setIsPremium(subscriptionStatus.isPremium);
+    } catch (error) {
+      console.error('Error loading subscription status:', error);
+      setIsPremium(false);
+    } finally {
+      setIsCheckingSubscription(false);
+    }
   };
 
   const loadUsage = async () => {
@@ -88,6 +112,18 @@ export default function StoryControls({
   const checkAudioAvailability = async () => {
     const available = await audioPlayer.isAudioAvailable();
     setHasAudio(available);
+  };
+
+  const handlePlayAudio = async () => {
+    // Check subscription status before allowing audio playback
+    if (!isPremium) {
+      setPaywallMessage('Audio playback is a Premium feature. Upgrade to listen to stories!');
+      setShowPaywall(true);
+      return;
+    }
+
+    // If user is premium, proceed with audio playback
+    await audioPlayer.togglePlayPause();
   };
 
   const handleGenerateAudio = async () => {
@@ -147,6 +183,15 @@ export default function StoryControls({
   };
 
   const renderAudioButton = () => {
+    // Show loading while checking subscription
+    if (isCheckingSubscription) {
+      return (
+        <TouchableOpacity style={[styles.controlButton, styles.disabledButton]} disabled>
+          <ActivityIndicator size={24} color={colors.white} />
+        </TouchableOpacity>
+      );
+    }
+
     if (isPersonalized) {
       // For personalized stories
       if (!hasAudio) {
@@ -166,8 +211,8 @@ export default function StoryControls({
       } else {
         return (
           <TouchableOpacity 
-            style={[styles.controlButton, audioPlayer.isLoading && styles.disabledButton]} 
-            onPress={audioPlayer.togglePlayPause}
+            style={[styles.controlButton, (audioPlayer.isLoading || !isPremium) && styles.disabledButton]} 
+            onPress={handlePlayAudio}
             disabled={audioPlayer.isLoading}
           >
             {audioPlayer.isLoading ? (
@@ -191,8 +236,8 @@ export default function StoryControls({
       } else {
         return (
           <TouchableOpacity 
-            style={[styles.controlButton, audioPlayer.isLoading && styles.disabledButton]} 
-            onPress={audioPlayer.togglePlayPause}
+            style={[styles.controlButton, (audioPlayer.isLoading || !isPremium) && styles.disabledButton]} 
+            onPress={handlePlayAudio}
             disabled={audioPlayer.isLoading}
           >
             {audioPlayer.isLoading ? (
