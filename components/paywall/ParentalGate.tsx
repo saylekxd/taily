@@ -37,44 +37,44 @@ export function ParentalGate({ visible, onSuccess, onCancel, purpose, descriptio
   const [mathQuestion, setMathQuestion] = useState<MathQuestion | null>(null);
   const [userAnswer, setUserAnswer] = useState('');
   const [sequenceTask, setSequenceTask] = useState<SequenceInstruction | null>(null);
-  const [holdProgress, setHoldProgress] = useState(0);
-  const [isHolding, setIsHolding] = useState(false);
   const [attempts, setAttempts] = useState(0);
-  const [error, setError] = useState('');
-  const holdIntervalRef = useRef<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isHolding, setIsHolding] = useState(false);
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Screen dimensions for responsive design
   const { width } = Dimensions.get('window');
 
+  // Initialize gate when modal becomes visible
   useEffect(() => {
     if (visible) {
       resetGate();
       generateRandomGate();
+    } else {
+      // Clean up when modal closes
+      setUserAnswer('');
+      setError(null);
+      setAttempts(0);
+      if (holdIntervalRef.current) {
+        clearInterval(holdIntervalRef.current);
+        holdIntervalRef.current = null;
+      }
+      setHoldProgress(0);
+      setIsHolding(false);
     }
   }, [visible]);
 
-  // Cleanup interval on unmount
-  useEffect(() => {
-    return () => {
-      if (holdIntervalRef.current) {
-        clearInterval(holdIntervalRef.current);
-      }
-    };
-  }, []);
-
   const resetGate = () => {
     setUserAnswer('');
-    setHoldProgress(0);
-    setIsHolding(false);
+    setError(null);
     setAttempts(0);
-    setError('');
     setSequenceTask(null);
     setMathQuestion(null);
   };
 
   const generateRandomGate = () => {
-    // Randomize gate type to prevent memorization
-    const gateTypes: ('math' | 'sequence' | 'hold')[] = ['math', 'sequence', 'hold'];
+    const gateTypes: Array<'math' | 'sequence' | 'hold'> = ['math', 'sequence', 'hold'];
     const randomType = gateTypes[Math.floor(Math.random() * gateTypes.length)];
     setGateType(randomType);
 
