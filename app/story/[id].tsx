@@ -19,6 +19,7 @@ import { useReadingSession } from '@/hooks/useReadingSession';
 import { useScrollTracking } from '@/hooks/useScrollTracking';
 import { subscriptionService } from '@/services/subscriptionService';
 import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
+import { supabase } from '@/lib/supabase';
 
 import { createOrUpdateUserStory } from '@/services/storyService';
 import { Story } from '@/types';
@@ -27,7 +28,7 @@ import { PersonalizedStory } from '@/services/personalizedStoryService';
 export default function StoryScreen() {
   const { id, personalized } = useLocalSearchParams<{ id: string; personalized?: string }>();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isGuestMode } = useUser();
   const { t } = useI18n();
   
   // Detailed reader state
@@ -80,7 +81,47 @@ export default function StoryScreen() {
       return;
     }
 
-    // For regular stories, check subscription limits
+    // For guest users, check if this is the daily story (free) or regular story (limited)
+    if (isGuestMode) {
+      // Check if this is the daily story by querying the daily_story_schedule
+      try {
+        const { data: dailyStoryData } = await supabase
+          .from('daily_story_schedule')
+          .select('current_story_id')
+          .single();
+        
+        const isDailyStory = dailyStoryData?.current_story_id === id;
+        
+        if (isDailyStory) {
+          // Daily story is completely free for guests
+          setProgress(newProgress);
+          return;
+        } else {
+          // Regular stories have 30% limit for guests
+          const maxGuestProgress = 0.3;
+          if (newProgress > maxGuestProgress) {
+            setPaywallMessage("Sign up to continue reading the full story!");
+            setShowPaywall(true);
+            return;
+          }
+          setProgress(newProgress);
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking daily story:', error);
+        // Fallback: treat as regular story with limits
+        const maxGuestProgress = 0.3;
+        if (newProgress > maxGuestProgress) {
+          setPaywallMessage("Sign up to continue reading the full story!");
+          setShowPaywall(true);
+          return;
+        }
+        setProgress(newProgress);
+        return;
+      }
+    }
+
+    // For regular stories with authenticated users, check subscription limits
     if (user?.id) {
       const readingCheck = await subscriptionService.checkStoryReadingLimit(user.id);
       
@@ -134,8 +175,8 @@ export default function StoryScreen() {
       animated: true,
     });
     
-    // Update user_stories with reset progress (only for regular stories)
-    if (user?.id && story?.id && personalized !== 'true') {
+    // Update user_stories with reset progress (only for authenticated users on regular stories)
+    if (user?.id && story?.id && personalized !== 'true' && !isGuestMode) {
       await createOrUpdateUserStory({
         user_id: user.id,
         story_id: story.id,
@@ -149,6 +190,13 @@ export default function StoryScreen() {
   };
 
   const toggleFavorite = async () => {
+    // Guest users can't save favorites
+    if (isGuestMode) {
+      setPaywallMessage("Sign up to save stories as favorites!");
+      setShowPaywall(true);
+      return;
+    }
+
     const newFavoriteState = !isFavorite;
     if (isMountedRef.current) {
       setIsFavorite(newFavoriteState);

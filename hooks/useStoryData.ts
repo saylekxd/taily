@@ -39,7 +39,10 @@ export function useStoryData(
     isMountedRef.current = true;
     
     async function loadStoryAndStartSession() {
-      if (!storyId || !userId) return;
+      if (!storyId) return;
+      
+      // For personalized stories, user ID is required
+      if (isPersonalized && !userId) return;
       
       if (!isMountedRef.current) return;
       setLoading(true);
@@ -48,10 +51,10 @@ export function useStoryData(
         let storyData: Story | PersonalizedStory | null = null;
         
         if (isPersonalized) {
-          // Load personalized story
-          storyData = await getPersonalizedStoryById(storyId, userId);
+          // Load personalized story (requires user ID)
+          storyData = await getPersonalizedStoryById(storyId, userId!);
         } else {
-          // Load regular story with user data
+          // Load regular story with user data (works for guests too)
           storyData = await getStoryByIdWithUserData(storyId, userId);
         }
         
@@ -62,13 +65,13 @@ export function useStoryData(
           setIsFavorite(storyData.is_favorite || false);
           setIsCompleted(storyData.completed || false);
           
-          // If there's saved progress > 5%, we should scroll to it
-          if (savedProgress > 0.05) {
+          // If there's saved progress > 5% and user is authenticated, scroll to it
+          if (savedProgress > 0.05 && userId) {
             setShouldScrollToProgress(true);
           }
           
-          // For regular stories, create or update user_story record
-          if (!isPersonalized) {
+          // For regular stories with authenticated users, create or update user_story record
+          if (!isPersonalized && userId) {
             await createOrUpdateUserStory({
               user_id: userId,
               story_id: storyId,
@@ -78,10 +81,12 @@ export function useStoryData(
             });
           }
           
-          // Start a new reading session (pass isPersonalized flag)
-          const sessionId = await startReadingSession(userId, storyId, isPersonalized);
-          if (isMountedRef.current) {
-            setCurrentSessionId(sessionId);
+          // Start a new reading session (only for authenticated users)
+          if (userId) {
+            const sessionId = await startReadingSession(userId, storyId, isPersonalized);
+            if (isMountedRef.current) {
+              setCurrentSessionId(sessionId);
+            }
           }
         }
       } catch (error) {

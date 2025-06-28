@@ -171,6 +171,14 @@ export default Sentry.wrap(function RootLayout() {
           
           console.log('Session check result:', !!session);
           
+          // Check if user is in guest mode
+          const guestMode = await AsyncStorage.getItem('isGuestMode');
+          if (guestMode === 'true') {
+            console.log('Guest mode detected, navigating to tabs...');
+            safeNavigate(router, '/(tabs)');
+            return;
+          }
+          
           if (session) {
             // Check if user has completed onboarding
             try {

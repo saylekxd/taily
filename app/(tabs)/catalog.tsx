@@ -41,10 +41,15 @@ export default function CatalogScreen() {
   useEffect(() => {
     const loadStories = async () => {
       setIsLoading(true);
-      const allStories = await getAllStories();
-      setStories(allStories);
-      setFilteredStories(allStories);
-      setIsLoading(false);
+      try {
+        const allStories = await getAllStories();
+        setStories(allStories);
+        setFilteredStories(allStories);
+      } catch (error) {
+        console.error('Error loading catalog stories:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     
     loadStories();

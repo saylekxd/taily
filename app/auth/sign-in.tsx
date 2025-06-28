@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useI18n } from '@/hooks/useI18n';
 import { colors } from '@/constants/colors';
 import RotatingLogoDecorator from '@/components/RotatingLogoDecorator';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -52,6 +53,12 @@ export default function SignInScreen() {
 
   const openTermsOfUse = () => {
     Linking.openURL('https://www.tailyapp.io/terms');
+  };
+
+  const handleGuestMode = async () => {
+    // Set guest mode flag in AsyncStorage
+    await AsyncStorage.setItem('isGuestMode', 'true');
+    router.push('/(tabs)');
   };
 
   return (
@@ -138,6 +145,14 @@ export default function SignInScreen() {
               <Text style={styles.legalLinkText}>Terms of Use</Text>
             </TouchableOpacity>
           </View>
+          
+          {/* Minimalistic Guest Mode Button */}
+          <TouchableOpacity 
+            style={styles.guestButton}
+            onPress={handleGuestMode}
+          >
+            <Text style={styles.guestButtonText}>{t('welcome.browseAsGuest')}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -260,5 +275,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontFamily: 'Nunito-Regular',
     fontSize: 12,
+  },
+  guestButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 16,
+  },
+  guestButtonText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    opacity: 0.6,
   },
 });

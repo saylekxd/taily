@@ -276,6 +276,8 @@
     "interactiveReading": "Interactive reading with sound effects",
     "getStarted": "Get Started",
     "signInToAccount": "Sign In to Your Account",
+    "browseAsGuest": "Continue without signing in",
+    "guestModeDescription": "Explore stories without creating an account",
     "joinThousands": "Join families creating magical reading experiences"
   },
   "notFound": {
@@ -337,5 +339,12 @@
     "speechRecognitionGeneric": "Speech recognition temporarily disabled. You can enable it in the settings.",
     "autoRetrying": "Auto-retrying in progress...",
     "autoRetryIn": "Auto-retry in {{seconds}}s"
+  },
+  "guest": {
+    "createAccountTitle": "Create Account",
+    "createAccountDescription": "Sign up to save progress and unlock personalized stories!",
+    "guestModeActive": "Guest Mode",
+    "limitedFeatures": "Some features are limited in guest mode",
+    "signUpToUnlock": "Sign up to unlock all features"
   }
 }

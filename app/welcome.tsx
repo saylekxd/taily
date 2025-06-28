@@ -59,6 +59,13 @@ export default function WelcomeScreen() {
     router.push('/auth/sign-in');
   };
 
+  const handleGuestMode = async () => {
+    await markWelcomeSeen();
+    // Set guest mode flag in AsyncStorage
+    await AsyncStorage.setItem('isGuestMode', 'true');
+    router.push('/(tabs)');
+  };
+
   return (
     <View style={styles.container}>
       <FloatingStars />
@@ -132,6 +139,14 @@ export default function WelcomeScreen() {
         </TouchableOpacity>
         
         <Text style={styles.footerText}>{t('welcome.joinThousands')}</Text>
+        
+        {/* Minimalistic Guest Mode Button */}
+        <TouchableOpacity 
+          style={styles.guestButton}
+          onPress={handleGuestMode}
+        >
+          <Text style={styles.guestButtonText}>{t('welcome.browseAsGuest')}</Text>
+        </TouchableOpacity>
       </Animated.View>
     </View>
   );
@@ -245,5 +260,19 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 8,
+  },
+  guestButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  guestButtonText: {
+    fontFamily: 'Nunito-Regular',
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    opacity: 0.7,
   },
 }); 

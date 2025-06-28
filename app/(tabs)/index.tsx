@@ -18,6 +18,7 @@ import StoryCard from '@/components/StoryCard';
 import PersonalizedStoryCard from '@/components/PersonalizedStoryCard';
 import PersonalizedStoryGenerator from '@/components/PersonalizedStoryGenerator';
 import CreatePersonalizedStoryCard from '@/components/CreatePersonalizedStoryCard';
+import GuestModeBanner from '@/components/GuestModeBanner';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
@@ -36,7 +37,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, profile } = useUser();
+  const { user, profile, isGuestMode } = useUser();
   const { t } = useI18n();
   const [recommendedStories, setRecommendedStories] = useState<Story[]>([]);
   const [inProgressStories, setInProgressStories] = useState<Story[]>([]);
@@ -51,33 +52,39 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadStories();
-  }, [user, profile]);
+  }, [user, profile, isGuestMode]);
 
   const loadStories = async () => {
-    if (!user?.id) return;
+    // Allow loading if user is authenticated OR in guest mode
+    if (!user?.id && !isGuestMode) {
+      return;
+    }
     
     setIsLoading(true);
     
     try {
-      // Get recommended stories
+      // Get recommended stories (works for both authenticated and guest users)
       const recommended = await getRecommendedStories(profile);
       setRecommendedStories(recommended);
       
-      // Get user's stories with progress
-      const inProgress = await getInProgressStories(user.id);
-      setInProgressStories(inProgress);
-      
-      // Get daily story from the daily story service
+      // Get daily story from the daily story service (works for all users)
       const daily = await getDailyStory();
       setDailyStory(daily);
       
-      // Get personalized stories
-      const personalized = await getUserPersonalizedStories(user.id);
-      setPersonalizedStories(personalized);
-      
-      // Get limit info
-      const info = await getUserStoryLimitInfo(user.id);
-      setLimitInfo(info);
+      // Only load user-specific data if not in guest mode
+      if (!isGuestMode && user?.id) {
+        // Get user's stories with progress
+        const inProgress = await getInProgressStories(user.id);
+        setInProgressStories(inProgress);
+        
+        // Get personalized stories
+        const personalized = await getUserPersonalizedStories(user.id);
+        setPersonalizedStories(personalized);
+        
+        // Get limit info
+        const info = await getUserStoryLimitInfo(user.id);
+        setLimitInfo(info);
+      }
       
       // Get announcements
       const userAge = profile?.age;
@@ -155,9 +162,17 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.greeting}>
-          {t('home.welcomeBack', { name: profile?.child_name || t('profile.explorer') })}
+          {isGuestMode 
+            ? t('home.welcomeBack', { name: t('guest.guestModeActive') })
+            : t('home.welcomeBack', { name: profile?.child_name || t('profile.explorer') })
+          }
         </Text>
       </View>
+
+      {/* Guest Mode Banner */}
+      {isGuestMode && (
+        <GuestModeBanner />
+      )}
 
       {/* Announcements Section */}
       {announcements.length > 0 && (
@@ -168,44 +183,46 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Personalized Stories Section */}
-      <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Sparkles size={20} color={colors.accent} />
-            <Text style={styles.sectionTitle}>{t('home.yourPersonalizedStories')}</Text>
-          </View>
-        </View>
-        
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        >
-          {/* Create New Story Card - Always first */}
-          <View style={[styles.horizontalCard, { marginLeft: 0 }]}>
-            <CreatePersonalizedStoryCard
-              onPress={() => setShowGenerator(true)}
-              currentCount={limitInfo.currentCount}
-              maxCount={limitInfo.maxCount}
-              canGenerate={limitInfo.canGenerate}
-              renewalTime="24 hours"
-            />
+      {/* Personalized Stories Section - Only for authenticated users */}
+      {!isGuestMode && (
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleContainer}>
+              <Sparkles size={20} color={colors.accent} />
+              <Text style={styles.sectionTitle}>{t('home.yourPersonalizedStories')}</Text>
+            </View>
           </View>
           
-          {/* Existing Personalized Stories */}
-          {personalizedStories.map((story) => (
-            <View key={story.id} style={[styles.horizontalCard, { marginLeft: 12 }]}>
-              <PersonalizedStoryCard 
-                story={story} 
-                size="medium"
-                onPress={() => router.push(`/story/${story.id}?personalized=true`)}
-                onDelete={() => handleDeletePersonalizedStory(story.id)}
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          >
+            {/* Create New Story Card - Always first */}
+            <View style={[styles.horizontalCard, { marginLeft: 0 }]}>
+              <CreatePersonalizedStoryCard
+                onPress={() => setShowGenerator(true)}
+                currentCount={limitInfo.currentCount}
+                maxCount={limitInfo.maxCount}
+                canGenerate={limitInfo.canGenerate}
+                renewalTime="24 hours"
               />
             </View>
-          ))}
-        </ScrollView>
-      </View>
+            
+            {/* Existing Personalized Stories */}
+            {personalizedStories.map((story) => (
+              <View key={story.id} style={[styles.horizontalCard, { marginLeft: 12 }]}>
+                <PersonalizedStoryCard 
+                  story={story} 
+                  size="medium"
+                  onPress={() => router.push(`/story/${story.id}?personalized=true`)}
+                  onDelete={() => handleDeletePersonalizedStory(story.id)}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Daily Story */}
       {dailyStory && (
@@ -231,8 +248,8 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Continue Reading */}
-      {inProgressStories.length > 0 && (
+      {/* Continue Reading - Only for authenticated users */}
+      {!isGuestMode && inProgressStories.length > 0 && (
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t('home.continueReading')}</Text>
@@ -293,12 +310,14 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Personalized Story Generator Modal */}
-      <PersonalizedStoryGenerator
-        visible={showGenerator}
-        onClose={() => setShowGenerator(false)}
-        onStoryGenerated={handleStoryGenerated}
-      />
+      {/* Personalized Story Generator Modal - Only for authenticated users */}
+      {!isGuestMode && (
+        <PersonalizedStoryGenerator
+          visible={showGenerator}
+          onClose={() => setShowGenerator(false)}
+          onStoryGenerated={handleStoryGenerated}
+        />
+      )}
 
       {/* Announcement Modal */}
       <AnnouncementModal

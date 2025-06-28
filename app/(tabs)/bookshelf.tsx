@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/hooks/useUser';
 import StoryCard from '@/components/StoryCard';
+import GuestModeBanner from '@/components/GuestModeBanner';
 import { colors } from '@/constants/colors';
 import { useI18n } from '@/hooks/useI18n';
 import { getUserStories, getFavoriteStories } from '@/services/storyService';
@@ -26,7 +27,7 @@ const CARD_WIDTH = (screenWidth - (HORIZONTAL_PADDING * 2) - (CARD_MARGIN * 3)) 
 export default function BookshelfScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isGuestMode } = useUser();
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [stories, setStories] = useState<Story[]>([]);
@@ -44,7 +45,7 @@ export default function BookshelfScreen() {
   }, [user?.id, activeTab]);
 
   const loadStories = async () => {
-    if (!user?.id) return;
+    if (!user?.id || isGuestMode) return;
     
     setIsLoading(true);
     try {
@@ -86,6 +87,24 @@ export default function BookshelfScreen() {
         return t('bookshelf.noStories');
     }
   };
+
+  // Show guest mode message for guest users
+  if (isGuestMode) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>{t('bookshelf.myBookshelf')}</Text>
+        </View>
+        
+        <GuestModeBanner />
+        
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>{t('guest.signUpToUnlock')}</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

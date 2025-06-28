@@ -276,6 +276,8 @@
     "interactiveReading": "Interaktywne czytanie z efektami dźwiękowymi",
     "getStarted": "Zacznij",
     "signInToAccount": "Zaloguj się do Konta",
+    "browseAsGuest": "Kontynuuj bez logowania",
+    "guestModeDescription": "Odkrywaj historie bez tworzenia konta",
     "joinThousands": "Dołącz do rodzin tworzących magiczne doświadczenia czytelnicze"
   },
   "notFound": {
@@ -337,5 +339,12 @@
     "speechRecognitionGeneric": "Rozpoznawanie mowy tymczasowo wyłączone. Możesz je włączyć w ustawieniach.",
     "autoRetrying": "Automatyczne ponawianie w toku...",
     "autoRetryIn": "Automatyczne ponawianie za {{seconds}}s"
+  },
+  "guest": {
+    "createAccountTitle": "Utwórz Konto",
+    "createAccountDescription": "Zarejestruj się, aby zapisać postępy i odblokować spersonalizowane historie!",
+    "guestModeActive": "Tryb Gościa",
+    "limitedFeatures": "Niektóre funkcje są ograniczone w trybie gościa",
+    "signUpToUnlock": "Zarejestruj się, aby odblokować wszystkie funkcje"
   }
 }

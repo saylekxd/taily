@@ -24,11 +24,12 @@ import ReadingStats from '@/components/ReadingStats';
 import AchievementsList from '@/components/AchievementsList';
 import ReadingInsights from '@/components/ReadingInsights';
 import AccountDeletion from '@/components/AccountDeletion';
+import GuestModeBanner from '@/components/GuestModeBanner';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, profile, refreshProfile } = useUser();
+  const { user, profile, refreshProfile, isGuestMode, exitGuestMode } = useUser();
   const { t } = useI18n();
   const [polishLanguage, setPolishLanguage] = useState(profile?.language === 'pl');
   const [showInsights, setShowInsights] = useState(false);
@@ -39,8 +40,13 @@ export default function ProfileScreen() {
   }, [profile?.language]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.replace('/auth/sign-in');
+    if (isGuestMode) {
+      await exitGuestMode();
+      router.replace('/welcome');
+    } else {
+      await supabase.auth.signOut();
+      router.replace('/auth/sign-in');
+    }
   };
 
   const handleEditProfile = () => {
@@ -98,44 +104,59 @@ export default function ProfileScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>{t('profile.title')}</Text>
         <View style={styles.childInfoContainer}>
-          <Text style={styles.childName}>{profile?.child_name || t('profile.explorer')}</Text>
+          <Text style={styles.childName}>
+            {isGuestMode ? t('guest.guestModeActive') : (profile?.child_name || t('profile.explorer'))}
+          </Text>
           <Text style={styles.childAge}>
-            {profile?.age ? t('profile.yearsOld', { age: profile.age }) : ''}
+            {isGuestMode ? t('guest.limitedFeatures') : 
+             (profile?.age ? t('profile.yearsOld', { age: profile.age }) : '')}
           </Text>
         </View>
       </View>
+
+      {/* Guest Mode Banner */}
+      {isGuestMode && (
+        <GuestModeBanner showDismiss={false} />
+      )}
       
-      {/* Reading Stats */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('profile.readingStats')}</Text>
-          <TouchableOpacity 
-            style={styles.insightsButton}
-            onPress={() => setShowInsights(true)}
-          >
-            <BarChart3 size={20} color={colors.primary} />
-            <Text style={styles.insightsButtonText}>{t('profile.insights')}</Text>
-          </TouchableOpacity>
+      {/* Reading Stats - Hidden in guest mode */}
+      {!isGuestMode && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t('profile.readingStats')}</Text>
+            <TouchableOpacity 
+              style={styles.insightsButton}
+              onPress={() => setShowInsights(true)}
+            >
+              <BarChart3 size={20} color={colors.primary} />
+              <Text style={styles.insightsButtonText}>{t('profile.insights')}</Text>
+            </TouchableOpacity>
+          </View>
+          <ReadingStats userId={user?.id} />
         </View>
-        <ReadingStats userId={user?.id} />
-      </View>
+      )}
       
-      {/* Achievements */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
-        <AchievementsList userId={user?.id} />
-      </View>
+      {/* Achievements - Hidden in guest mode */}
+      {!isGuestMode && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
+          <AchievementsList userId={user?.id} />
+        </View>
+      )}
       
       {/* Settings */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('profile.settings')}</Text>
         
-        <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
-          <View style={styles.settingLeft}>
-            <Edit3 size={24} color={colors.textSecondary} />
-            <Text style={styles.settingText}>{t('profile.editProfile')}</Text>
-          </View>
-        </TouchableOpacity>
+        {/* Edit Profile - Hidden in guest mode */}
+        {!isGuestMode && (
+          <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
+            <View style={styles.settingLeft}>
+              <Edit3 size={24} color={colors.textSecondary} />
+              <Text style={styles.settingText}>{t('profile.editProfile')}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
         
         <View style={styles.settingItem}>
           <View style={styles.settingLeft}>
@@ -144,7 +165,8 @@ export default function ProfileScreen() {
           </View>
           <Switch
             value={polishLanguage}
-            onValueChange={toggleLanguage}
+            onValueChange={isGuestMode ? undefined : toggleLanguage}
+            disabled={isGuestMode}
             trackColor={{ false: colors.background, true: colors.primary }}
             thumbColor={colors.white}
           />
@@ -153,13 +175,15 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.settingItem} onPress={handleSignOut}>
           <View style={styles.settingLeft}>
             <LogOut size={24} color={colors.error} />
-            <Text style={[styles.settingText, { color: colors.error }]}>{t('profile.signOut')}</Text>
+            <Text style={[styles.settingText, { color: colors.error }]}>
+              {isGuestMode ? t('guest.signUpToUnlock') : t('profile.signOut')}
+            </Text>
           </View>
         </TouchableOpacity>
       </View>
 
-      {/* Account Deletion */}
-      <AccountDeletion />
+      {/* Account Deletion - Only show for authenticated users */}
+      {!isGuestMode && <AccountDeletion />}
     </ScrollView>
   );
 }
