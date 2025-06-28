@@ -341,8 +341,8 @@
     "autoRetryIn": "Automatyczne ponawianie za {{seconds}}s"
   },
   "guest": {
-    "createAccountTitle": "Utwórz Konto",
-    "createAccountDescription": "Zarejestruj się, aby zapisać postępy i odblokować spersonalizowane historie!",
+    "createAccountTitle": "Używasz aplikacji bez konta",
+    "createAccountDescription": "Niektóre funkcje wymagają konta do zapisywania postępów i personalizacji treści.",
     "guestModeActive": "Tryb Gościa",
     "limitedFeatures": "Niektóre funkcje są ograniczone w trybie gościa",
     "signUpToUnlock": "Zarejestruj się, aby odblokować wszystkie funkcje"

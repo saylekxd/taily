@@ -341,8 +341,8 @@
     "autoRetryIn": "Auto-retry in {{seconds}}s"
   },
   "guest": {
-    "createAccountTitle": "Create Account",
-    "createAccountDescription": "Sign up to save progress and unlock personalized stories!",
+    "createAccountTitle": "You're using the app without an account",
+    "createAccountDescription": "Some features require an account to save progress and personalize content.",
     "guestModeActive": "Guest Mode",
     "limitedFeatures": "Some features are limited in guest mode",
     "signUpToUnlock": "Sign up to unlock all features"
