@@ -125,16 +125,27 @@ serve(async (req) => {
 async function handleSubscriptionActivation(supabase: any, event: RevenueCatEvent) {
   const userId = event.app_user_id;
   const expiryDate = event.expiration_at_ms ? new Date(event.expiration_at_ms).toISOString() : null;
+  const isSandbox = event.environment === 'SANDBOX';
   
-  console.log(`Activating subscription for user ${userId}, expires: ${expiryDate}`);
+  console.log(`Activating subscription for user ${userId}, expires: ${expiryDate}, sandbox: ${isSandbox}`);
   
   try {
+    // For sandbox purchases, set a longer expiry if not provided
+    let effectiveExpiryDate = expiryDate;
+    if (isSandbox && !expiryDate) {
+      // Give sandbox purchases 1 year by default
+      const oneYearFromNow = new Date();
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+      effectiveExpiryDate = oneYearFromNow.toISOString();
+      console.log(`Sandbox purchase without expiry - setting to: ${effectiveExpiryDate}`);
+    }
+
     // Update profiles table
     const { error: profileError } = await supabase
       .from('profiles')
       .update({
         subscription_tier: 'premium',
-        subscription_expires_at: expiryDate,
+        subscription_expires_at: effectiveExpiryDate,
         revenue_cat_customer_id: event.app_user_id
       })
       .eq('id', userId);
@@ -152,7 +163,7 @@ async function handleSubscriptionActivation(supabase: any, event: RevenueCatEven
         subscription_status: 'premium',
         revenue_cat_customer_id: event.app_user_id,
         product_id: event.product_id,
-        expiry_date: expiryDate,
+        expiry_date: effectiveExpiryDate,
         is_active: true,
         environment: event.environment || 'PRODUCTION',
         store: event.store || 'APP_STORE',
@@ -175,10 +186,29 @@ async function handleSubscriptionActivation(supabase: any, event: RevenueCatEven
 
 async function handleSubscriptionDeactivation(supabase: any, event: RevenueCatEvent) {
   const userId = event.app_user_id;
+  const isSandbox = event.environment === 'SANDBOX';
   
-  console.log(`Deactivating subscription for user ${userId}`);
+  console.log(`Deactivating subscription for user ${userId}, sandbox: ${isSandbox}`);
   
   try {
+    // Check current subscription status before deactivating
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('subscription_tier, subscription_expires_at')
+      .eq('id', userId)
+      .single();
+
+    if (currentProfile) {
+      const currentExpiry = currentProfile.subscription_expires_at ? new Date(currentProfile.subscription_expires_at) : null;
+      const now = new Date();
+      
+      // In sandbox, be more careful about deactivating
+      if (isSandbox && currentExpiry && currentExpiry > now) {
+        console.log(`Skipping deactivation in sandbox - subscription still valid until ${currentExpiry}`);
+        return;
+      }
+    }
+
     // Update profiles table
     const { error: profileError } = await supabase
       .from('profiles')

@@ -53,11 +53,25 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       // Initialize RevenueCat with user
       await revenueCatService.identifyUser(user.id);
       
-      // Sync subscription status
-      await revenueCatService.syncSubscriptionStatus();
+      // Don't sync immediately - just load current status from database
+      // This prevents overwriting recent purchases that RevenueCat hasn't processed yet
+      console.log('Loading subscription status from database...');
       
       // Load current status
       await refreshSubscription();
+      
+      // Sync with RevenueCat after a delay to allow purchases to process
+      setTimeout(async () => {
+        try {
+          console.log('Delayed sync with RevenueCat...');
+          await revenueCatService.syncSubscriptionStatus();
+          // Refresh again after sync
+          await refreshSubscription();
+        } catch (error) {
+          console.error('Error in delayed sync:', error);
+        }
+      }, 5000); // 5 second delay
+      
     } catch (error) {
       console.error('Error initializing subscription:', error);
       setLoading(false);

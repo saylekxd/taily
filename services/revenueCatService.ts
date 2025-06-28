@@ -191,10 +191,44 @@ class RevenueCatService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check current status in database before syncing
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('subscription_tier, subscription_expires_at')
+        .eq('id', user.id)
+        .single();
+
       const isPremium = customerInfo.entitlements.active['premium'] !== undefined;
       const premiumEntitlement = customerInfo.entitlements.active['premium'];
       const expiryDate = premiumEntitlement?.expirationDate;
       const productId = premiumEntitlement?.productIdentifier;
+
+      // In sandbox environment, be more lenient with subscription status
+      const isSandbox = customerInfo.entitlements.active['premium']?.isSandbox || false;
+      
+      console.log('Syncing subscription status:', {
+        isPremium,
+        expiryDate,
+        productId,
+        isSandbox,
+        currentTier: currentProfile?.subscription_tier,
+        revenueCatUserId: customerInfo.originalAppUserId
+      });
+
+      // Prevent downgrading a premium user to free if:
+      // 1. They currently have premium in the database
+      // 2. Their expiry date hasn't passed
+      // 3. We're in sandbox mode (which can be unreliable)
+      if (currentProfile?.subscription_tier === 'premium' && !isPremium) {
+        const currentExpiry = currentProfile.subscription_expires_at ? new Date(currentProfile.subscription_expires_at) : null;
+        const now = new Date();
+        
+        // If subscription hasn't expired yet, or we're in sandbox, don't downgrade
+        if ((currentExpiry && currentExpiry > now) || isSandbox) {
+          console.log('Skipping downgrade - user has active premium subscription or in sandbox mode');
+          return;
+        }
+      }
 
       // Update profiles table for quick access
       const { error: profileError } = await supabase
@@ -221,6 +255,7 @@ class RevenueCatService {
           expiry_date: expiryDate,
           is_active: isPremium,
           platform: Platform.OS,
+          environment: isSandbox ? 'SANDBOX' : 'PRODUCTION',
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'
@@ -229,6 +264,8 @@ class RevenueCatService {
       if (subscriptionError) {
         throw new Error(`Failed to update subscription: ${subscriptionError.message}`);
       }
+
+      console.log('Subscription sync completed successfully');
 
     } catch (error) {
       console.error('Error syncing subscription status:', error);

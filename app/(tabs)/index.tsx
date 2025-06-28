@@ -22,7 +22,6 @@ import GuestModeBanner from '@/components/GuestModeBanner';
 import { colors } from '@/constants/colors';
 import { useUser } from '@/hooks/useUser';
 import { useI18n } from '@/hooks/useI18n';
-import { useAppStateRefresh } from '@/hooks/useAppStateRefresh';
 import { getRecommendedStories, getInProgressStories } from '@/services/storyService';
 import { getDailyStory } from '@/services/dailyStoryService';
 import { getUserPersonalizedStories, deletePersonalizedStory, getUserStoryLimitInfo } from '@/services/personalizedStoryService';
@@ -50,6 +49,10 @@ export default function HomeScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [showGenerator, setShowGenerator] = useState(false);
   const [limitInfo, setLimitInfo] = useState({ currentCount: 0, maxCount: 2, canGenerate: true });
+
+  useEffect(() => {
+    loadStories();
+  }, [user, profile, isGuestMode]);
 
   const loadStories = async () => {
     // Allow loading if user is authenticated OR in guest mode
@@ -94,24 +97,10 @@ export default function HomeScreen() {
       setAnnouncements(announcementsData);
     } catch (error) {
       console.error('Error loading stories:', error);
-      Sentry.captureException(error);
     } finally {
       setIsLoading(false);
     }
   };
-
-  // Use the app state refresh hook to handle background/foreground transitions
-  useAppStateRefresh({
-    onRefresh: loadStories,
-    dependencies: [user, profile, isGuestMode],
-    refreshOnNetworkReconnect: true,
-    refreshDelay: 500
-  });
-
-  // Initial load
-  useEffect(() => {
-    loadStories();
-  }, [user, profile, isGuestMode]);
 
   const handleDeletePersonalizedStory = async (storyId: string) => {
     Alert.alert(
