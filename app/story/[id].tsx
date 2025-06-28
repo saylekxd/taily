@@ -81,47 +81,39 @@ export default function StoryScreen() {
       return;
     }
 
-    // For guest users, check if this is the daily story (free) or regular story (limited)
-    if (isGuestMode) {
-      // Check if this is the daily story by querying the daily_story_schedule
-      try {
-        const { data: dailyStoryData } = await supabase
-          .from('daily_story_schedule')
-          .select('current_story_id')
-          .single();
-        
-        const isDailyStory = dailyStoryData?.current_story_id === id;
-        
-        if (isDailyStory) {
-          // Daily story is completely free for guests
-          setProgress(newProgress);
-          return;
-        } else {
-          // Regular stories have 30% limit for guests
-          const maxGuestProgress = 0.3;
-          if (newProgress > maxGuestProgress) {
-            setPaywallMessage("Sign up to continue reading the full story!");
-            setShowPaywall(true);
-            return;
-          }
-          setProgress(newProgress);
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking daily story:', error);
-        // Fallback: treat as regular story with limits
-        const maxGuestProgress = 0.3;
-        if (newProgress > maxGuestProgress) {
-          setPaywallMessage("Sign up to continue reading the full story!");
-          setShowPaywall(true);
-          return;
-        }
+    // Check if this is the daily story (completely free for everyone)
+    try {
+      const { data: dailyStoryData } = await supabase
+        .from('daily_story_schedule')
+        .select('current_story_id')
+        .single();
+      
+      const isDailyStory = dailyStoryData?.current_story_id === id;
+      
+      if (isDailyStory) {
+        // Daily story is completely free for everyone (guests and authenticated users)
         setProgress(newProgress);
         return;
       }
+    } catch (error) {
+      console.error('Error checking daily story:', error);
+      // Continue with the regular limit checks below if we can't determine daily story status
     }
 
-    // For regular stories with authenticated users, check subscription limits
+    // For guest users on regular stories (not daily story)
+    if (isGuestMode) {
+      // Regular stories have 30% limit for guests
+      const maxGuestProgress = 0.3;
+      if (newProgress > maxGuestProgress) {
+        setPaywallMessage("Sign up to continue reading the full story!");
+        setShowPaywall(true);
+        return;
+      }
+      setProgress(newProgress);
+      return;
+    }
+
+    // For authenticated users on regular stories (not daily story), check subscription limits
     if (user?.id) {
       const readingCheck = await subscriptionService.checkStoryReadingLimit(user.id);
       
