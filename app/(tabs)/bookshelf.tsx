@@ -10,12 +10,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useUser } from '@/hooks/useUser';
+import { useAppStateRefresh } from '@/hooks/useAppStateRefresh';
 import StoryCard from '@/components/StoryCard';
 import GuestModeBanner from '@/components/GuestModeBanner';
 import { colors } from '@/constants/colors';
 import { useI18n } from '@/hooks/useI18n';
 import { getUserStories, getFavoriteStories } from '@/services/storyService';
 import { Story } from '@/types';
+import * as Sentry from '@sentry/react-native';
 
 type TabType = 'all' | 'unread' | 'favorites' | 'audio';
 
@@ -40,10 +42,6 @@ export default function BookshelfScreen() {
     { id: 'audio' as TabType, label: 'Audio' },
   ];
 
-  useEffect(() => {
-    loadStories();
-  }, [user?.id, activeTab]);
-
   const loadStories = async () => {
     if (!user?.id || isGuestMode) return;
     
@@ -64,10 +62,24 @@ export default function BookshelfScreen() {
       setStories(storiesData);
     } catch (error) {
       console.error('Error loading stories:', error);
+      Sentry.captureException(error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Use the app state refresh hook to handle background/foreground transitions
+  useAppStateRefresh({
+    onRefresh: loadStories,
+    dependencies: [user?.id, activeTab],
+    refreshOnNetworkReconnect: true,
+    refreshDelay: 500
+  });
+
+  // Initial load
+  useEffect(() => {
+    loadStories();
+  }, [user?.id, activeTab]);
 
   const filteredStories = () => {
     return stories; // Already filtered by the API call

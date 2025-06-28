@@ -16,9 +16,11 @@ import StoryCard from '@/components/StoryCard';
 import CategoryBadge from '@/components/CategoryBadge';
 import { colors } from '@/constants/colors';
 import { useI18n } from '@/hooks/useI18n';
+import { useAppStateRefresh } from '@/hooks/useAppStateRefresh';
 import { getAllStories, searchStories } from '@/services/storyService';
 import { Story, Category } from '@/types';
 import { getTranslatedCategories } from '@/constants/categories';
+import * as Sentry from '@sentry/react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 const CARD_MARGIN = 8;
@@ -38,20 +40,30 @@ export default function CatalogScreen() {
   // Get translated categories
   const translatedCategories = getTranslatedCategories(t);
 
-  useEffect(() => {
-    const loadStories = async () => {
-      setIsLoading(true);
-      try {
+  const loadStories = async () => {
+    setIsLoading(true);
+    try {
       const allStories = await getAllStories();
       setStories(allStories);
       setFilteredStories(allStories);
-      } catch (error) {
-        console.error('Error loading catalog stories:', error);
-      } finally {
+    } catch (error) {
+      console.error('Error loading catalog stories:', error);
+      Sentry.captureException(error);
+    } finally {
       setIsLoading(false);
-      }
-    };
-    
+    }
+  };
+
+  // Use the app state refresh hook to handle background/foreground transitions
+  useAppStateRefresh({
+    onRefresh: loadStories,
+    dependencies: [],
+    refreshOnNetworkReconnect: true,
+    refreshDelay: 500
+  });
+
+  // Initial load
+  useEffect(() => {
     loadStories();
   }, []);
 
