@@ -3,8 +3,9 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/constants/colors';
-import { X, Check, Crown } from 'lucide-react-native';
+import { X, Check, Crown, UserPlus } from 'lucide-react-native';
 import { ParentalGate } from './ParentalGate';
+import { useUser } from '@/hooks/useUser';
 
 interface PaywallTriggerProps {
   visible: boolean;
@@ -14,6 +15,7 @@ interface PaywallTriggerProps {
 }
 
 export function PaywallTrigger({ visible, onClose, feature, customMessage }: PaywallTriggerProps) {
+  const { user, isGuestMode } = useUser();
   const [showParentalGate, setShowParentalGate] = useState(false);
 
   const getFeatureDetails = () => {
@@ -52,8 +54,26 @@ export function PaywallTrigger({ visible, onClose, feature, customMessage }: Pay
   const details = getFeatureDetails();
 
   const handleUpgrade = () => {
+    // Check if user is logged in first
+    if (!user || isGuestMode) {
+      // Redirect to sign up for guests
+      onClose();
+      router.push('/auth/sign-up');
+      return;
+    }
+    
     // Show parental gate first before navigating to paywall
     setShowParentalGate(true);
+  };
+
+  const handleCreateAccount = () => {
+    onClose();
+    router.push('/auth/sign-up');
+  };
+
+  const handleSignIn = () => {
+    onClose();
+    router.push('/auth/sign-in');
   };
 
   const handleParentalGateSuccess = () => {
@@ -65,6 +85,87 @@ export function PaywallTrigger({ visible, onClose, feature, customMessage }: Pay
   const handleParentalGateCancel = () => {
     setShowParentalGate(false);
   };
+
+  // Show account creation screen for guests
+  if (!user || isGuestMode) {
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="slide"
+        onRequestClose={onClose}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.container}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={onClose}
+              >
+                <X size={20} color={colors.white} />
+              </TouchableOpacity>
+              
+              <UserPlus size={40} color={colors.primary} />
+              <Text style={styles.title}>Account Required</Text>
+            </View>
+            
+            {/* Content */}
+            <View style={styles.content}>
+              <Text style={styles.message}>
+                Create an account to access Premium features and save your progress.
+              </Text>
+              
+              <View style={styles.benefitsList}>
+                <View style={styles.benefitItem}>
+                  <Check size={16} color={colors.success} />
+                  <Text style={styles.benefitText}>Secure subscription management</Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <Check size={16} color={colors.success} />
+                  <Text style={styles.benefitText}>Sync across all devices</Text>
+                </View>
+                <View style={styles.benefitItem}>
+                  <Check size={16} color={colors.success} />
+                  <Text style={styles.benefitText}>Save reading progress</Text>
+                </View>
+              </View>
+            </View>
+            
+            {/* Buttons */}
+            <View style={styles.buttons}>
+              <TouchableOpacity 
+                style={styles.upgradeButton}
+                onPress={handleCreateAccount}
+              >
+                <LinearGradient
+                  colors={[colors.primary, '#FF8E8E']}
+                  style={styles.upgradeButtonGradient}
+                >
+                  <Text style={styles.upgradeButtonText}>Create Account</Text>
+                  <Text style={styles.upgradeButtonSubtext}>Join thousands of families</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.secondaryButton}
+                onPress={handleSignIn}
+              >
+                <Text style={styles.secondaryButtonText}>Already have an account? Sign In</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={onClose}
+              >
+                <Text style={styles.cancelButtonText}>Maybe Later</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -257,5 +358,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Regular',
     color: colors.textSecondary,
     fontSize: 16,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  secondaryButtonText: {
+    fontFamily: 'Nunito-Regular',
+    color: colors.white,
+    fontSize: 14,
   },
 }); 

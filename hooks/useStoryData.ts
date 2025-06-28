@@ -83,9 +83,9 @@ export function useStoryData(
           
           // Start a new reading session (only for authenticated users)
           if (userId) {
-            const sessionId = await startReadingSession(userId, storyId, isPersonalized);
-            if (isMountedRef.current) {
-              setCurrentSessionId(sessionId);
+          const sessionId = await startReadingSession(userId, storyId, isPersonalized);
+          if (isMountedRef.current) {
+            setCurrentSessionId(sessionId);
             }
           }
         }

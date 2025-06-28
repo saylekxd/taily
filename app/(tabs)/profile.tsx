@@ -44,8 +44,8 @@ export default function ProfileScreen() {
       await exitGuestMode();
       router.replace('/welcome');
     } else {
-      await supabase.auth.signOut();
-      router.replace('/auth/sign-in');
+    await supabase.auth.signOut();
+    router.replace('/auth/sign-in');
     }
   };
 
@@ -113,7 +113,7 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </View>
-
+      
       {/* Guest Mode Banner */}
       {isGuestMode && (
         <GuestModeBanner showDismiss={false} />
@@ -121,27 +121,27 @@ export default function ProfileScreen() {
       
       {/* Reading Stats - Hidden in guest mode */}
       {!isGuestMode && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('profile.readingStats')}</Text>
-            <TouchableOpacity 
-              style={styles.insightsButton}
-              onPress={() => setShowInsights(true)}
-            >
-              <BarChart3 size={20} color={colors.primary} />
-              <Text style={styles.insightsButtonText}>{t('profile.insights')}</Text>
-            </TouchableOpacity>
-          </View>
-          <ReadingStats userId={user?.id} />
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t('profile.readingStats')}</Text>
+          <TouchableOpacity 
+            style={styles.insightsButton}
+            onPress={() => setShowInsights(true)}
+          >
+            <BarChart3 size={20} color={colors.primary} />
+            <Text style={styles.insightsButtonText}>{t('profile.insights')}</Text>
+          </TouchableOpacity>
         </View>
+        <ReadingStats userId={user?.id} />
+      </View>
       )}
       
       {/* Achievements - Hidden in guest mode */}
       {!isGuestMode && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
-          <AchievementsList userId={user?.id} />
-        </View>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>{t('profile.achievements')}</Text>
+        <AchievementsList userId={user?.id} />
+      </View>
       )}
       
       {/* Settings */}
@@ -150,12 +150,12 @@ export default function ProfileScreen() {
         
         {/* Edit Profile - Hidden in guest mode */}
         {!isGuestMode && (
-          <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
-            <View style={styles.settingLeft}>
-              <Edit3 size={24} color={colors.textSecondary} />
-              <Text style={styles.settingText}>{t('profile.editProfile')}</Text>
-            </View>
-          </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem} onPress={handleEditProfile}>
+          <View style={styles.settingLeft}>
+            <Edit3 size={24} color={colors.textSecondary} />
+            <Text style={styles.settingText}>{t('profile.editProfile')}</Text>
+          </View>
+        </TouchableOpacity>
         )}
         
         <View style={styles.settingItem}>

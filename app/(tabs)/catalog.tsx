@@ -42,13 +42,13 @@ export default function CatalogScreen() {
     const loadStories = async () => {
       setIsLoading(true);
       try {
-        const allStories = await getAllStories();
-        setStories(allStories);
-        setFilteredStories(allStories);
+      const allStories = await getAllStories();
+      setStories(allStories);
+      setFilteredStories(allStories);
       } catch (error) {
         console.error('Error loading catalog stories:', error);
       } finally {
-        setIsLoading(false);
+      setIsLoading(false);
       }
     };
     

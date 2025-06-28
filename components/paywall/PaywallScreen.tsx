@@ -6,8 +6,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/constants/colors';
 import { X, Check, Crown } from 'lucide-react-native';
 import { ParentalGate } from './ParentalGate';
+import { useUser } from '@/hooks/useUser';
+import { useI18n } from '@/hooks/useI18n';
+import AccountRequiredScreen from './AccountRequiredScreen';
 
 export default function PaywallScreen() {
+  const { user, isGuestMode } = useUser();
+  const { t } = useI18n();
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual'); // Default to annual for better value
@@ -100,6 +105,11 @@ export default function PaywallScreen() {
   const openAppleEULA = () => {
     Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/');
   };
+
+  // Force login before showing paywall
+  if (!user || isGuestMode) {
+    return <AccountRequiredScreen />;
+  }
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
@@ -558,5 +568,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Nunito-Regular',
     color: colors.textSecondary,
     fontSize: 16,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginTop: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  secondaryButtonText: {
+    fontFamily: 'Nunito-Bold',
+    fontSize: 16,
+    color: colors.white,
   },
 }); 

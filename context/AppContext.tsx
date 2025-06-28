@@ -26,15 +26,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const guestMode = await AsyncStorage.getItem('isGuestMode');
       setIsGuestMode(guestMode === 'true');
 
-      // Initialize session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
+    // Initialize session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
         // If user signs in, exit guest mode
         if (session && guestMode === 'true') {
           AsyncStorage.removeItem('isGuestMode');
           setIsGuestMode(false);
         }
-      });
+    });
     };
 
     initializeApp();
