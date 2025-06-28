@@ -29,6 +29,8 @@ import SettingsPanel from './components/SettingsPanel';
 import ReaderContent from './components/ReaderContent';
 import FullscreenControls from './components/FullscreenControls';
 import SpeechRecognitionErrorHandler from '@/components/ErrorHandling/SpeechRecognitionErrorHandler';
+import ProgressProtectionProvider from './components/ProgressProtectionProvider';
+import { PaywallTrigger } from '@/components/paywall/PaywallTrigger';
 
 export default function DetailedReaderView({
   visible,
@@ -46,6 +48,10 @@ export default function DetailedReaderView({
   const [showSettings, setShowSettings] = useState(false);
   const [showInstructionsBanner, setShowInstructionsBanner] = useState(true);
   const instructionsBannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Paywall state for progress protection
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallMessage, setPaywallMessage] = useState<string>();
 
   // Custom hooks
   const {
@@ -188,25 +194,35 @@ export default function DetailedReaderView({
           colorTheme={currentTheme}
         />
 
-
-
-        {/* Content */}
-        <ReaderContent
-          content={content}
-          settings={settings}
-          colorTheme={currentTheme}
-          progress={progress}
-          onProgressChange={onProgressChange}
-          scrollState={scrollState}
-          onScrollStateChange={updateScrollState}
-          isFullscreen={settings.isFullscreen}
-          scrollViewRef={scrollViewRef}
-          isInteractiveMode={interactiveState.isEnabled}
-          highlightedWords={interactiveState.recognizedWords}
-          onWordSpoken={onWordRecognized}
+        {/* Content with Progress Protection */}
+        <ProgressProtectionProvider
           storyId={storyId}
           personalizedStoryId={personalizedStoryId}
-        />
+          onProgressChange={onProgressChange}
+          onPaywallTriggered={(message) => {
+            setPaywallMessage(message);
+            setShowPaywall(true);
+          }}
+        >
+          {(protectedOnProgressChange) => (
+            <ReaderContent
+              content={content}
+              settings={settings}
+              colorTheme={currentTheme}
+              progress={progress}
+              onProgressChange={protectedOnProgressChange}
+              scrollState={scrollState}
+              onScrollStateChange={updateScrollState}
+              isFullscreen={settings.isFullscreen}
+              scrollViewRef={scrollViewRef}
+              isInteractiveMode={interactiveState.isEnabled}
+              highlightedWords={interactiveState.recognizedWords}
+              onWordSpoken={onWordRecognized}
+              storyId={storyId}
+              personalizedStoryId={personalizedStoryId}
+            />
+          )}
+        </ProgressProtectionProvider>
 
         {/* Fullscreen controls - positioned absolutely to stay sticky */}
         {settings.isFullscreen && (
@@ -231,6 +247,14 @@ export default function DetailedReaderView({
             </Text>
           </View>
         )}
+
+        {/* Paywall Trigger for Progress Protection */}
+        <PaywallTrigger 
+          visible={showPaywall}
+          onClose={() => setShowPaywall(false)}
+          feature="full_reading"
+          customMessage={paywallMessage}
+        />
       </SafeAreaView>
     </Modal>
   );
