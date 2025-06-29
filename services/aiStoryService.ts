@@ -167,14 +167,14 @@ function validateStory(story: GeneratedStory, params: StoryGenerationParams): vo
 export function generateCoverImageUrl(coverImagePrompt: string, childName: string): string {
   // For now, we'll use a curated set of child-friendly images from Pexels
   const coverImages = [
-    'https://images.pexels.com/photos/1148998/pexels-photo-1148998.jpeg', // Child reading
-    'https://images.pexels.com/photos/1250452/pexels-photo-1250452.jpeg', // Adventure scene
-    'https://images.pexels.com/photos/1094072/pexels-photo-1094072.jpeg', // Fantasy landscape
-    'https://images.pexels.com/photos/1148999/pexels-photo-1148999.jpeg', // Magical forest
-    'https://images.pexels.com/photos/1250643/pexels-photo-1250643.jpeg', // Ocean adventure
-    'https://images.pexels.com/photos/1148997/pexels-photo-1148997.jpeg', // Space theme
-    'https://images.pexels.com/photos/1250644/pexels-photo-1250644.jpeg', // Animal friends
-    'https://images.pexels.com/photos/1148996/pexels-photo-1148996.jpeg', // Castle adventure
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/ai-child-reading.png', // Child reading
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/ai-adventure-scene.png', // Adventure scene
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/ai-fantasy-landscape.png', // Fantasy landscape
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/magical-forest.png', // Magical forest
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/ai-ocean-adventure.png', // Ocean adventure
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/ai-space-theme.png', // Space theme
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/ai-animal-friends.png', // Animal friends
+    'https://jiqflpvashecttmtyelw.supabase.co/storage/v1/object/public/marketing/personalized-stories/ai-castle-adventure.png', // Castle adventure
   ];
   
   // Select image based on prompt content and child name

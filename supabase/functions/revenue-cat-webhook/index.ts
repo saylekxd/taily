@@ -17,7 +17,7 @@ interface RevenueCatEvent {
   customer_info?: any;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -33,7 +33,19 @@ serve(async (req) => {
     );
 
     const payload = await req.json();
-    const { event }: { event: RevenueCatEvent } = payload;
+    
+    // Handle both possible payload structures:
+    // 1. { event: { type: ..., app_user_id: ... } } - wrapped in event property
+    // 2. { type: ..., app_user_id: ... } - direct event data
+    let event: RevenueCatEvent;
+    if (payload.event && typeof payload.event === 'object') {
+      event = payload.event;
+    } else if (payload.type && payload.app_user_id) {
+      event = payload;
+    } else {
+      console.error('Invalid webhook payload structure:', payload);
+      return new Response('Invalid payload structure - missing event data', { status: 400 });
+    }
 
     console.log('RevenueCat webhook received:', {
       type: event.type,
